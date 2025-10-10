@@ -8,8 +8,4 @@
 
 ## Техническое задание (программисткое)
 
-> TODO
-
-## Макет UI
-
-> TODO
+[TERMS_FORMAL.md](./TERMS_FORMAL.md)
