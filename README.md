@@ -9,7 +9,3 @@
 ## Техническое задание (программисткое)
 
 [TERMS_FORMAL.md](./TERMS_FORMAL.md)
-
-## Макет UI
-
-> TODO
