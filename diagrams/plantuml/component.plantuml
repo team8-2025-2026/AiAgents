@@ -1,0 +1,52 @@
+@startuml
+skinparam componentStyle rectangle
+
+actor Student
+actor Consultant
+actor Teacher
+
+package "Frontend" {
+  [Student UI] as StudentUI
+  [Teacher UI] as TeacherUI
+  [Consultant UI] as ConsultantUI
+}
+
+package "Backend" {
+  [Chat API] as ChatAPI
+  [Auth API] as AuthAPI
+  [Admin API] as AdminAPI
+  [AI Agents API] as AIAgentsAPI
+  [Database API] as DatabaseAPI
+  [Test Checker] as TestChecker
+}
+
+package "AI Agents" {
+  [Platform navigator] as PlatformNavigator
+  [Tasks helper] as TasksHelper
+  [Chat companion recommender] as ChatCompanionRecommender
+}
+
+database DB
+
+' UI dependencies
+StudentUI       --> ChatAPI
+TeacherUI       --> ChatAPI
+ConsultantUI    --> ChatAPI
+
+' API dependencies
+ChatAPI         --> AuthAPI
+ChatAPI         --> AdminAPI
+ChatAPI         --> AIAgentsAPI
+AuthAPI         --> DatabaseAPI
+AdminAPI        --> DatabaseAPI
+AIAgentsAPI     --> DatabaseAPI
+DatabaseAPI     --> DB
+AIAgentsAPI     --> PlatformNavigator
+AIAgentsAPI     --> TasksHelper
+AIAgentsAPI     --> ChatCompanionRecommender
+
+' Actors dependencies
+Student --> StudentUI
+Teacher --> TeacherUI
+Consultant --> ConsultantUI
+@enduml

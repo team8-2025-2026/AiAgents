@@ -1,0 +1,46 @@
+@startuml
+skinparam node {
+  BackgroundColor LightYellow
+  BorderColor Black
+}
+
+node "Student Web App" as StudentClient {
+}
+
+node "Consultant Web App" as ConsultantClient {
+}
+
+node "Teacher Web App" as TeacherClient {
+}
+
+node "Application Server" as AppServer {
+  component "Chat API"
+  component "Auth API"
+  component "Admin API"
+  component "Test Checker"
+}
+
+node "AI Agents Server" as AIAgentsServer {
+  component "AI Agents API"
+}
+
+node "Database Server" as DatabaseServer {
+  component "Database API" as DBAPI
+  database DB
+}
+
+node "LLM Service (Cloud)" as LLMNode {
+}
+
+
+StudentClient       --> AppServer
+TeacherClient       --> AppServer
+ConsultantClient    --> AppServer
+
+AppServer       --> AIAgentsServer
+AppServer       --> DatabaseServer
+
+DBAPI -> DB
+
+AIAgentsServer  --> LLMNode
+@enduml
