@@ -203,3 +203,23 @@
 ### Диаграмма развертывания
 
 ![Диаграмма развертывания](./diagrams/images/deployment.png)
+
+## 12. Используемые технологии
+
+### Front End
+
+* HTML/CSS/JS
+* Vue framework
+
+### Backend
+
+* API: Fast API
+
+### Database
+
+* PostgresSQL
+
+### ML
+
+* Opensourse LLM: Llama 3.1
+* Additional training: Python + Numpy + Torch
