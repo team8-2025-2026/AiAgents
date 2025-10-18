@@ -1,0 +1,38 @@
+@startuml
+left to right direction
+skinparam actorStyle awesome
+
+actor Student
+actor Teacher
+actor Consultant
+
+rectangle "Student Chat" {
+  usecase "Ask question about chat navigation" as UC1
+  usecase "Ask question about test answers" as UC2
+  usecase "Rate ChatBot answer" as UC3
+  usecase "Ask for chat companion recommendations" as UC4
+  usecase "Switch chat companion" as UC5
+}
+
+rectangle "Consultant/Teacher Chat" {
+  usecase "Send response" as UC21
+  usecase "Close chat" as UC22
+  usecase "Transfer chat to other consultant/teacher" as UC23
+  usecase "Получить выжимку сути запроса пользователя" as UC24
+}
+
+Student --> UC1
+Student --> UC2
+Student --> UC3
+Student --> UC4
+Student --> UC5
+
+Consultant --> UC21
+Consultant --> UC22
+Consultant --> UC23
+Consultant --> UC24
+
+Teacher --> UC21
+Teacher --> UC22
+Teacher --> UC24
+@enduml
