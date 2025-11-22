@@ -1,0 +1,112 @@
+.settings-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: #343541;
+  padding: 2rem;
+}
+
+.settings-container {
+  background: #202123;
+  padding: 2rem 3rem;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 500px;
+}
+
+.settings-container h1 {
+  margin-bottom: 2rem;
+  color: #ececf1;
+  font-size: 1.8rem;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-size: 0.9rem;
+  color: #8e8ea0;
+}
+
+.form-group input {
+  padding: 0.75rem;
+  background: #40414f;
+  border: 1px solid #565869;
+  border-radius: 6px;
+  color: #ececf1;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #10a37f;
+}
+
+.error-message {
+  background: #ef4444;
+  color: white;
+  padding: 0.75rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.success-message {
+  background: #10a37f;
+  color: white;
+  padding: 0.75rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.submit-button {
+  padding: 0.75rem 1.5rem;
+  background: #10a37f;
+  color: white;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: background 0.2s;
+}
+
+.submit-button:hover:not(:disabled) {
+  background: #0d8f6e;
+}
+
+.submit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cancel-button {
+  padding: 0.75rem 1.5rem;
+  background: #565869;
+  color: white;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: background 0.2s;
+}
+
+.cancel-button:hover {
+  background: #40414f;
+}
+
+
+

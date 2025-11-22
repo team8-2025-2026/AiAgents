@@ -1,0 +1,39 @@
+.header {
+  background: #202123;
+  border-bottom: 1px solid #40414f;
+  padding: 0.75rem 1.5rem;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-left h2 {
+  font-size: 1.2rem;
+  color: #ececf1;
+  font-weight: 500;
+}
+
+.header-right {
+  display: flex;
+  gap: 1rem;
+}
+
+.header-button {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  color: #8e8ea0;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.header-button:hover {
+  background: #40414f;
+  color: #ececf1;
+}
+
+
+

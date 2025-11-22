@@ -1,0 +1,70 @@
+.user-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: #343541;
+  padding: 2rem;
+}
+
+.user-container {
+  background: #202123;
+  padding: 2rem 3rem;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 600px;
+}
+
+.user-container h1 {
+  margin-bottom: 2rem;
+  color: #ececf1;
+  font-size: 1.8rem;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.info-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.info-row .label {
+  color: #8e8ea0;
+  font-size: 0.9rem;
+}
+
+.info-row .value {
+  color: #ececf1;
+  font-size: 1.1rem;
+  padding: 0.5rem;
+  background: #40414f;
+  border-radius: 6px;
+}
+
+.user-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.action-button {
+  padding: 0.75rem 1.5rem;
+  background: #10a37f;
+  color: white;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: background 0.2s;
+}
+
+.action-button:hover {
+  background: #0d8f6e;
+}
+
+
+

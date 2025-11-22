@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 from typing import Optional, Union
 from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 from dotenv import load_dotenv
 import bcrypt
@@ -32,14 +36,14 @@ DESCRIPTION_LENGTH_RANGE = range(0, 1024)
 
 
 class User(SQLModel, table=True):
-    id: Optional[int]   = Field(default=None, primary_key=True)
-    email: str          = Field(unique=True, index=True)
-    first_name: str     = Field()
-    last_name: str      = Field()
-    status: str         = Field()
-    description: str    = Field(default="")
-    password_hash: str  = Field()
-    access_token: str   = Field(unique=True, index=True)
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(unique=True, index=True)
+    first_name: str = Field()
+    last_name: str = Field()
+    status: str = Field()
+    description: str = Field(default="")
+    password_hash: str = Field()
+    access_token: str = Field(unique=True, index=True)
 
     def to_json(self) -> dict:
         return {
@@ -59,6 +63,15 @@ salt = bcrypt.gensalt()
 
 load_dotenv()
 SQLModel.metadata.create_all(engine)
+
+# CORS middleware для работы с фронтендом
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # В продакшене указать конкретные домены
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 #region Password utils
@@ -137,6 +150,18 @@ def read_user(email: str,
             return error("Пользователь с таким email и паролем не найден")
 
 
+@app.get("/user/by_token")
+def read_user_by_token(access_token: str):
+    with Session(engine) as session:
+        statement = select(User).where(User.access_token == access_token)
+        user = session.exec(statement).first()
+
+        if user is not None:
+            return success(user.to_json())
+        else:
+            return error("Пользователь с таким токеном не найден")
+
+
 @app.put("/user")
 def create_user(email: str,
                 first_name: str,
@@ -194,13 +219,13 @@ def update_user(email: str,
                 last_name: Optional[str] = None,
                 description: Optional[str] = None,
                 password: Optional[str] = None):
-    if not validate_first_name(first_name):
+    if first_name is not None and not validate_first_name(first_name):
         return error("Неверные параметры: first_name")
-    if not validate_last_name(last_name):
+    if last_name is not None and not validate_last_name(last_name):
         return error("Неверные параметры: last_name")
-    if not validate_description(description):
+    if description is not None and not validate_description(description):
         return error("Неверные параметры: description")
-    if not validate_description(password):
+    if password is not None and not validate_password(password):
         return error("Неверные параметры: password")
     
     # Check access permissions
@@ -248,7 +273,7 @@ def update_user(email: str,
 
 
 @app.delete("/user")
-def update_user(email: str,
+def delete_user(email: str,
                 access_token: str):
     # Check access permissions
     if access_token != os.getenv('ADMIN_ACCESS_TOKEN'):
@@ -282,4 +307,210 @@ def update_user(email: str,
         session.commit()
 
         return success(user.to_json())
+#endregion
+
+
+#region Web UI
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    """Главная страница с формой авторизации"""
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>AI Agents - Вход в систему</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                padding: 20px;
+            }
+            .container {
+                background: #202123;
+                padding: 2rem 3rem;
+                border-radius: 12px;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+                width: 100%;
+                max-width: 400px;
+            }
+            h1 {
+                text-align: center;
+                margin-bottom: 0.5rem;
+                font-size: 2rem;
+                color: #ececf1;
+            }
+            h2 {
+                text-align: center;
+                margin-bottom: 2rem;
+                font-size: 1.2rem;
+                color: #8e8ea0;
+                font-weight: normal;
+            }
+            .form-group {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+                margin-bottom: 1.5rem;
+            }
+            label {
+                font-size: 0.9rem;
+                color: #8e8ea0;
+            }
+            input {
+                padding: 0.75rem;
+                background: #40414f;
+                border: 1px solid #565869;
+                border-radius: 6px;
+                color: #ececf1;
+                font-size: 1rem;
+                transition: border-color 0.2s;
+            }
+            input:focus {
+                outline: none;
+                border-color: #10a37f;
+            }
+            button {
+                width: 100%;
+                padding: 0.75rem;
+                background: #10a37f;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 1rem;
+                font-weight: 500;
+                cursor: pointer;
+                transition: background 0.2s;
+            }
+            button:hover {
+                background: #0d8f6e;
+            }
+            button:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+            .error {
+                background: #ef4444;
+                color: white;
+                padding: 0.75rem;
+                border-radius: 6px;
+                font-size: 0.9rem;
+                text-align: center;
+                margin-bottom: 1rem;
+                display: none;
+            }
+            .success {
+                background: #10a37f;
+                color: white;
+                padding: 0.75rem;
+                border-radius: 6px;
+                font-size: 0.9rem;
+                text-align: center;
+                margin-bottom: 1rem;
+                display: none;
+            }
+            .note {
+                margin-top: 1.5rem;
+                text-align: center;
+                font-size: 0.85rem;
+                color: #8e8ea0;
+            }
+            .api-link {
+                margin-top: 1rem;
+                text-align: center;
+            }
+            .api-link a {
+                color: #10a37f;
+                text-decoration: none;
+                font-size: 0.9rem;
+            }
+            .api-link a:hover {
+                text-decoration: underline;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>AI Agents</h1>
+            <h2>Вход в систему</h2>
+            <div id="error" class="error"></div>
+            <div id="success" class="success"></div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required placeholder="example@mail.com">
+                </div>
+                <div class="form-group">
+                    <label for="password">Пароль</label>
+                    <input type="password" id="password" name="password" required placeholder="Введите пароль">
+                </div>
+                <button type="submit" id="submitBtn">Войти</button>
+            </form>
+            <p class="note">Создание аккаунта доступно только через поддержку</p>
+            <div class="api-link">
+                <a href="/docs" target="_blank">API Документация</a> | 
+                <a href="https://github.com" target="_blank" style="margin-left: 0.5rem;">Инструкция по регистрации</a>
+            </div>
+        </div>
+        <script>
+            const form = document.getElementById('loginForm');
+            const errorDiv = document.getElementById('error');
+            const successDiv = document.getElementById('success');
+            const submitBtn = document.getElementById('submitBtn');
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                errorDiv.style.display = 'none';
+                successDiv.style.display = 'none';
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Вход...';
+
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+
+                try {
+                    const params = new URLSearchParams({ email, password });
+                    const response = await fetch(`/user?${params.toString()}`);
+                    const data = await response.json();
+
+                    if (data.success) {
+                        // Сохраняем токен и данные пользователя
+                        localStorage.setItem('access_token', data.data.access_token);
+                        localStorage.setItem('user_data', JSON.stringify(data.data));
+                        
+                        successDiv.textContent = 'Успешный вход! Перенаправление...';
+                        successDiv.style.display = 'block';
+                        
+                        // Перенаправляем на главную страницу WebUI (если запущен)
+                        setTimeout(() => {
+                            window.location.href = 'http://localhost:3000';
+                        }, 1000);
+                    } else {
+                        errorDiv.textContent = data.error || 'Ошибка авторизации';
+                        errorDiv.style.display = 'block';
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Войти';
+                    }
+                } catch (error) {
+                    errorDiv.textContent = 'Ошибка подключения к серверу';
+                    errorDiv.style.display = 'block';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Войти';
+                }
+            });
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
 #endregion
