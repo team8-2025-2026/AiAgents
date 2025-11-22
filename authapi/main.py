@@ -7,6 +7,7 @@ import random
 import string
 import time
 import os
+import re
 
 
 # User.status
@@ -19,6 +20,15 @@ STATUSES = [STUDENT, TEACHER, ASSISTENT]
 # Password utils constants
 AVAILABLE_PASSWORD_SYMBOLS = string.ascii_letters + string.digits
 PASSWORD_LENGTH = 20
+
+
+# Validation constants
+EMAIL_REGEX = re.compile(r"[^@]+@[^@]+\.[^@]+")
+EMAIL_LENGTH_RANGE = range(1, 256)
+FIRST_NAME_LENGTH_RANGE = range(2, 64)
+LAST_NAME_LENGTH_RANGE = range(2, 64)
+PASSWORD_LENGTH_RANGE = range(8, 32)
+DESCRIPTION_LENGTH_RANGE = range(0, 1024)
 
 
 class User(SQLModel, table=True):
@@ -87,6 +97,32 @@ def success(data: dict) -> dict:
 #endregion
 
 
+#region Validation utils
+def validate_email(email: str) -> bool:
+    return len(email) in EMAIL_LENGTH_RANGE and EMAIL_REGEX.match(email)
+
+
+def validate_first_name(first_name: str) -> bool:
+    return len(first_name) in FIRST_NAME_LENGTH_RANGE
+
+
+def validate_last_name(last_name: str) -> bool:
+    return len(last_name) in LAST_NAME_LENGTH_RANGE
+
+
+def validate_description(description: str) -> bool:
+    return len(description) in DESCRIPTION_LENGTH_RANGE
+
+
+def validate_password(password: str) -> bool:
+    return len(password) in PASSWORD_LENGTH_RANGE
+
+
+def validate_status(status: str) -> bool:
+    return status in STATUSES
+#endregion
+
+
 #region CRUD
 @app.get("/user")
 def read_user(email: str,
@@ -114,12 +150,14 @@ def create_user(email: str,
         if user is not None:
             return error("Email занят")
     
-    if len(first_name) not in range(2, 30):
-        return error("Невалидное имя пользователя")
-    if len(last_name) not in range(2, 30):
-        return error("Невалидная фамилия пользователя")
-    if status not in STATUSES:
-        return error("Невалидный статус пользователя")
+    if not validate_email(email):
+        return error("Неверные параметры: email")
+    if not validate_first_name(first_name):
+        return error("Неверные параметры: first_name")
+    if not validate_last_name(last_name):
+        return error("Неверные параметры: last_name")
+    if not validate_status(status):
+        return error("Неверные параметры: status")
     
     # Check access permissions
     if access_token != os.getenv('ADMIN_ACCESS_TOKEN'):
@@ -154,16 +192,16 @@ def update_user(email: str,
                 access_token: str,
                 first_name: Optional[str] = None,
                 last_name: Optional[str] = None,
-                password: Optional[str] = None,
-                description: Optional[str] = None):
-    if first_name is not None and len(first_name) not in range(2, 30):
-        return error("Невалидное имя пользователя")
-    if last_name is not None and len(last_name) not in range(2, 30):
-        return error("Невалидная фамилия пользователя")
-    if description is not None and len(description) not in range(0, 1024):
-        return error("Невалидная описание пользователя")
-    if password is not None and len(password) not in range(8, 50):
-        return error("Невалидное пароль")
+                description: Optional[str] = None,
+                password: Optional[str] = None):
+    if not validate_first_name(first_name):
+        return error("Неверные параметры: first_name")
+    if not validate_last_name(last_name):
+        return error("Неверные параметры: last_name")
+    if not validate_description(description):
+        return error("Неверные параметры: description")
+    if not validate_description(password):
+        return error("Неверные параметры: password")
     
     # Check access permissions
     if access_token != os.getenv('ADMIN_ACCESS_TOKEN'):
