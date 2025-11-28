@@ -29,7 +29,7 @@ async def load_app_context(app: FastAPI):
     
     if check_cuda and torch.cuda.is_available():
         print("CUDA is available. Loading model on GPU.")
-        context.model = AutoModelForCausalLM.from_pretrained(model_path, device_map="cuda")
+        context.model = AutoModelForCausalLM.from_pretrained(model_path).cuda()
     else:
         print("CUDA is not available. Loading model on CPU.")
         context.model = AutoModelForCausalLM.from_pretrained(model_path)
@@ -50,8 +50,6 @@ def ask(history: List[AskRequestHistoryItem]):
             "role": item.author,
             "content": item.text
         })
-    print(history)
-    print(messages)
 
     try:
         text = context.tokenizer.apply_chat_template(
