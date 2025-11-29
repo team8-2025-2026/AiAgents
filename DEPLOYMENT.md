@@ -113,9 +113,13 @@ npm install
 
 ```env
 VITE_API_URL=http://localhost:8000
+VITE_CHAT_API_URL=http://localhost:8001
 ```
 
-**Важно:** Если API запущен на другом порту, измените URL соответственно
+**Важно:** 
+- `VITE_API_URL` - адрес authapi (по умолчанию 8000)
+- `VITE_CHAT_API_URL` - адрес chatapi (по умолчанию 8001)
+- Если сервисы запущены на других портах, измените URL соответственно
 
 ### 2.3. Запуск dev сервера
 
@@ -126,7 +130,54 @@ npm run dev
 
 WebUI будет доступен на `http://localhost:3000` (или другом порту, если 3000 занят)
 
-## Шаг 3: Создание первого пользователя
+## Шаг 3: Настройка Chat API
+
+### 3.1. Установка зависимостей
+
+**Windows:**
+```bash
+cd chatapi
+python -m pip install -r requirements.txt
+```
+
+**Linux/Mac:**
+```bash
+cd chatapi
+pip install -r requirements.txt
+```
+
+**Примечание:** Если команда `pip` не найдена, используйте `python -m pip` или `python3 -m pip`
+
+### 3.2. Создание файла .env
+
+Создайте файл `chatapi/.env`:
+
+```env
+CONNECTION_STRING=sqlite:///database.db
+```
+
+**Важно:** 
+- Используйте ту же базу данных, что и authapi (или общую БД)
+- Если база данных в другой папке, укажите полный путь: `sqlite:///../authapi/database.db`
+
+### 3.3. Запуск сервера
+
+**Windows:**
+```bash
+cd chatapi
+python -m uvicorn main:app --reload --port 8001
+```
+
+**Linux/Mac:**
+```bash
+cd chatapi
+uvicorn main:app --reload --port 8001
+```
+
+Chat API будет доступен на `http://localhost:8001`
+Документация API: `http://localhost:8001/docs`
+
+## Шаг 4: Создание первого пользователя
 
 1. Откройте `http://localhost:8000/docs` в браузере
 2. Найдите эндпоинт **PUT /user** и нажмите "Try it out"
@@ -139,7 +190,7 @@ WebUI будет доступен на `http://localhost:3000` (или друг�
 4. Нажмите "Execute"
 5. **Важно:** Сохраните пароль из ответа API (поле `password` в `data`) - он понадобится для входа!
 
-## Шаг 4: Вход в систему
+## Шаг 5: Вход в систему
 
 1. Откройте `http://localhost:3000`
 2. Введите email и пароль (из шага 3)
@@ -149,10 +200,15 @@ WebUI будет доступен на `http://localhost:3000` (или друг�
 
 ```
 AiAgents/
-├── authapi/              # Backend API
+├── authapi/              # Auth API (порт 8000)
 │   ├── main.py          # FastAPI приложение
 │   ├── requirements.txt # Python зависимости
 │   └── .env            # Конфигурация (создать)
+├── chatapi/              # Chat API (порт 8001)
+│   ├── main.py          # FastAPI приложение
+│   └── .env            # Конфигурация (создать)
+├── llmapi/               # LLM API (опционально)
+│   └── main.py          # FastAPI приложение
 ├── webui/               # Frontend
 │   ├── src/            # Исходный код React
 │   ├── package.json    # Node.js зависимости
@@ -169,16 +225,16 @@ AiAgents/
 - `PATCH /user` - обновление пользователя
 - `DELETE /user` - удаление пользователя
 
-### Чаты
-- `GET /chat` - список чатов
-- `POST /chat` - создание чата
-- `GET /chat/{chat_id}` - информация о чате
-- `PATCH /chat/{chat_id}` - обновление чата
-- `DELETE /chat/{chat_id}` - удаление чата
+### Чаты (Chat API - порт 8001)
+- `GET /chats` - список чатов пользователя
+- `PUT /chat` - создание чата
+- `GET /chat?id={chat_id}` - информация о чате
+- `PATCH /chat?id={chat_id}&title={title}` - обновление названия чата
+- `DELETE /chat?id={chat_id}` - удаление чата
 
-### Сообщения
-- `GET /chat/{chat_id}/message` - получение сообщений
-- `POST /chat/{chat_id}/message` - отправка сообщения
+### Сообщения (Chat API - порт 8001)
+- `GET /chat/history?id={chat_id}` - получение истории сообщений
+- `POST /chat/send_message?id={chat_id}&text={text}` - отправка сообщения
 
 ## Продакшн развертывание
 
