@@ -1,0 +1,10 @@
+# Models folder
+models/
+
+# Config files
+.env
+
+# Python cache
+__pycache__/
+.venv/
+*.db
