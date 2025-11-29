@@ -48,18 +48,18 @@
 {
     "success": true,
     "error": "...",
-    "data": {
+    "data": { // ChatData
         "id": 123,
         "student_title": "...",
         "assistent_title": "...",
-        "student" {
+        "student" { // UserData
             "id": 123,
             "first_name": "...",
             "last_name": "...",
             "status": "...",
             "description": "...",
         },
-        "assistent": {
+        "assistent": { // ChatCompanionData
             "type": "HUMAN/LLM",
             "data": { // in case of "HUMAN" type
                 "id": 123,
@@ -137,18 +137,18 @@
 {
     "success": true,
     "error": "...",
-    "data": {
+    "data": { // ChatData
         "id": 123,
         "student_title": "...",
         "assistent_title": "...",
-        "student" {
+        "student" { // UserData
             "id": 123,
             "first_name": "...",
             "last_name": "...",
             "status": "...",
             "description": "...",
         },
-        "assistent": {
+        "assistent": { // ChatCompanionData
             "type": "HUMAN/LLM",
             "data": { // in case of "HUMAN" type
                 "id": 123,
@@ -185,18 +185,18 @@
 {
     "success": true,
     "error": "...",
-    "data": {
+    "data": { // ChatData
         "id": 123,
         "student_title": "...",
         "assistent_title": "...",
-        "student" {
+        "student" { // UserData
             "id": 123,
             "first_name": "...",
             "last_name": "...",
             "status": "...",
             "description": "...",
         },
-        "assistent": {
+        "assistent": { // ChatCompanionData
             "type": "HUMAN/LLM",
             "data": { // in case of "HUMAN" type
                 "id": 123,
