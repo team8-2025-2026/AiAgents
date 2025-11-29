@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { chatAPI } from '../api/chat';
 import '../styles/ChatInterface.css';
 
 function ChatInterface({ chatId, user, chats, onChatNotFound }) {
@@ -11,7 +12,7 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
   useEffect(() => {
     // Проверяем доступ к чату
     if (chats && chats.length > 0) {
-      const chatExists = chats.some(chat => chat.id === chatId);
+      const chatExists = chats.some(chat => chat.id === chatId || chat.id === String(chatId));
       if (!chatExists) {
         setChatNotFound(true);
         return;
@@ -22,7 +23,7 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
     // Устанавливаем интервал для обновления сообщений каждые 5 секунд
     const interval = setInterval(loadMessages, 5000);
     return () => clearInterval(interval);
-  }, [chatId, chats]);
+  }, [chatId, chats, loadMessages]);
 
   useEffect(() => {
     scrollToBottom();
@@ -32,45 +33,65 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const loadMessages = async () => {
-    // TODO: Заменить на реальный API
-    // Пока используем моковые данные
-    if (chatId) {
-      const mockMessages = [
-        { id: '1', role: 'user', content: 'Привет!', timestamp: new Date() },
-        { id: '2', role: 'assistant', content: 'Здравствуйте! Чем могу помочь?', timestamp: new Date() },
-      ];
-      setMessages(mockMessages);
+  const loadMessages = useCallback(async () => {
+    if (!chatId) return;
+    
+    try {
+      const loadedMessages = await chatAPI.getMessages(chatId);
+      setMessages(loadedMessages);
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+      // В случае ошибки оставляем текущие сообщения
     }
-  };
+  }, [chatId]);
 
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!inputValue.trim() || loading) return;
+    if (!inputValue.trim() || loading || !chatId) return;
 
-    const userMessage = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: inputValue.trim(),
-      timestamp: new Date(),
-    };
-
-    setMessages([...messages, userMessage]);
+    const messageContent = inputValue.trim();
     setInputValue('');
     setLoading(true);
 
-    // TODO: Отправить сообщение через API
-    // Пока симулируем ответ
-    setTimeout(() => {
-      const assistantMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'Это демо-ответ. В реальной версии здесь будет ответ от AI.',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, assistantMessage]);
+    // Оптимистично добавляем сообщение пользователя
+    const userMessage = {
+      id: `temp-${Date.now()}`,
+      role: 'user',
+      content: messageContent,
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, userMessage]);
+
+    try {
+      // Отправляем сообщение через API
+      const response = await chatAPI.sendMessage(chatId, messageContent);
+      
+      // Обновляем временное сообщение пользователя
+      if (response.message) {
+        const updatedUserMessage = {
+          id: response.message.id || userMessage.id,
+          role: response.message.role || 'user',
+          content: response.message.content || messageContent,
+          timestamp: new Date(),
+        };
+        setMessages(prev => prev.map(msg => 
+          msg.id === userMessage.id ? updatedUserMessage : msg
+        ));
+      }
+
+      // Если это LLM чат, ответ должен прийти автоматически
+      // Перезагружаем сообщения для получения ответа
+      setTimeout(async () => {
+        await loadMessages();
+        setLoading(false);
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // Удаляем временное сообщение при ошибке
+      setMessages(prev => prev.filter(msg => msg.id !== userMessage.id));
+      alert('Не удалось отправить сообщение. Попробуйте еще раз.');
       setLoading(false);
-    }, 1000);
+    }
   };
 
   if (chatNotFound) {

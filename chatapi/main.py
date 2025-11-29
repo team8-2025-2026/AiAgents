@@ -234,7 +234,7 @@ def delete_chat(id: int, access_token: str):
             assistent_companion = ChatCompanion(chat.companion_type, assistent_user)
             
             if student_user is not None and student_user.access_token == access_token:
-                session.delete_chat(chat)
+                session.delete(chat)
                 session.commit()
 
                 return success( chat.to_json(student_user.to_json(), assistent_companion.to_json()) )
@@ -333,4 +333,51 @@ def read_history(id: int, access_token: str):
                 )
             else:
                 return error("Чат не найден")
+
+
+@app.get("/chats")
+def read_chats(access_token: str):
+    """Получить список всех чатов пользователя"""
+    with Session(engine) as session:
+        statement = select(User).where(User.access_token == access_token)
+        user = session.exec(statement).first()
+
+        if user is None:
+            return error("Пользователь не найден")
+        
+        chats_list = []
+        
+        if user.status == STUDENT:
+            # Студент видит только свои чаты
+            statement = select(Chat).where(Chat.student_id == user.id)
+            chats = session.exec(statement).all()
+        elif user.status == TEACHER or user.status == ASSISTENT:
+            # Учитель/Ассистент видит чаты, где он является собеседником
+            statement = select(Chat).where(Chat.companion_id == user.id)
+            chats = session.exec(statement).all()
+        else:
+            return error("Неизвестный статус пользователя")
+        
+        for chat in chats:
+            statement = select(User).where(User.id == chat.student_id)
+            student_user = session.exec(statement).first()
+            
+            if chat.companion_type == HUMAN:
+                statement = select(User).where(User.id == chat.companion_id)
+                assistent_user = session.exec(statement).first()
+            else:
+                assistent_user = None
+            assistent_companion = ChatCompanion(chat.companion_type, assistent_user)
+            
+            # Определяем title в зависимости от роли пользователя
+            if user.status == STUDENT:
+                title = chat.student_title
+            else:
+                title = chat.assistent_title
+            
+            chat_data = chat.to_json(student_user.to_json(), assistent_companion.to_json())
+            chat_data['title'] = title
+            chats_list.append(chat_data)
+        
+        return success(chats_list)
 #endregion
