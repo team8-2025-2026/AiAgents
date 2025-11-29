@@ -55,12 +55,11 @@ class User(SQLModel, table=True):
             "access_token": self.access_token
         }
 
-
-engine = create_engine("sqlite:///database.db")
+load_dotenv()
+engine = create_engine(os.getenv('CONNECTION_STRING'))
 app = FastAPI()
 salt = bcrypt.gensalt()
 
-load_dotenv()
 SQLModel.metadata.create_all(engine)
 
 # CORS middleware для работы с фронтендом

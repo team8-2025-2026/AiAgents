@@ -154,7 +154,7 @@ def read_chat(id: int, access_token: str):
                 return success( chat.to_json(student_user.to_json(), assistent_companion.to_json()) )
             else:
                 return error("Чат не найден")
-            
+
 
 @app.put("/chat")
 def create_chat(access_token: str):
