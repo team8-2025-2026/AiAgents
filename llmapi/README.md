@@ -38,7 +38,6 @@ pip3 install -r requirements.txt
 
 ### Install models
 
-
 #### Install `git xet`
 
 ```bash
@@ -90,3 +89,20 @@ mkdir models/ ; cd models/
 git clone $MODEL_REPOSITORY
 cd ../
 ```
+
+### Задать нужные переменные окружения
+
+Пример `.env` файла:
+
+```Properties\
+MODEL_PATH=./models/Qwen3-0.6B/
+CHECK_CUDA=true
+```
+
+## Запуск сервиса
+
+```bash
+python -m uvicorn main:app --reload --port 8001
+```
+
+##
