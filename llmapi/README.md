@@ -94,7 +94,7 @@ cd ../
 
 Пример `.env` файла:
 
-```Properties
+```Properties\
 MODEL_PATH=./models/Qwen3-0.6B/
 CHECK_CUDA=true
 ```
