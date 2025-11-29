@@ -50,8 +50,16 @@
     "error": "...",
     "data": {
         "id": 123,
-        "title": "...",
-        "companion": {
+        "student_title": "...",
+        "assistent_title": "...",
+        "student" {
+            "id": 123,
+            "first_name": "...",
+            "last_name": "...",
+            "status": "...",
+            "description": "...",
+        },
+        "assistent": {
             "type": "HUMAN/LLM",
             "data": { // in case of "HUMAN" type
                 "id": 123,
@@ -108,45 +116,6 @@
 }
 ```
 
-##### **PUT** `/chat`
-
-Создает чат. По умолчанию чат создается с чат ботом. Создать чат может только студент.
-
-###### Request
-
-```json
-{
-    "access_token": "..."
-}
-```
-
-###### Response
-
-```json
-{
-    "success": true,
-    "error": "...",
-    "data": {
-        "id": 123,
-        "title": "...",
-        "companion": {
-            "type": "HUMAN/LLM",
-            "data": { // in case of "HUMAN" type
-                "id": 123,
-                "first_name": "...",
-                "last_name": "...",
-                "status": "...",
-                "description": "...",
-            },
-            "data": { // in case of "LLM" type
-                "name": "...",
-                "description": "...",
-            }
-        }
-    }
-}
-```
-
 ##### **UPDATE** `/chat`
 
 Обновляет чат. `title` для каждого собеседника свой, то есть если пользователь поменял название,
@@ -156,6 +125,7 @@
 
 ```json
 {
+    "id": "...",
     "title": "...",
     "access_token": "..."
 }
@@ -169,8 +139,16 @@
     "error": "...",
     "data": {
         "id": 123,
-        "title": "...",
-        "companion": {
+        "student_title": "...",
+        "assistent_title": "...",
+        "student" {
+            "id": 123,
+            "first_name": "...",
+            "last_name": "...",
+            "status": "...",
+            "description": "...",
+        },
+        "assistent": {
             "type": "HUMAN/LLM",
             "data": { // in case of "HUMAN" type
                 "id": 123,
@@ -209,8 +187,16 @@
     "error": "...",
     "data": {
         "id": 123,
-        "title": "...",
-        "companion": {
+        "student_title": "...",
+        "assistent_title": "...",
+        "student" {
+            "id": 123,
+            "first_name": "...",
+            "last_name": "...",
+            "status": "...",
+            "description": "...",
+        },
+        "assistent": {
             "type": "HUMAN/LLM",
             "data": { // in case of "HUMAN" type
                 "id": 123,
@@ -248,11 +234,36 @@
 {
     "success": true,
     "error": "...",
-    "data": {
+    "data": { // MessageData
         "id": 123,
-        "chat_id": 123,
         "text": "...",
-        "author": {
+        "chat": { // ChatData
+            "id": 123,
+            "student_title": "...",
+            "assistent_title": "...",
+            "student" { // UserData
+                "id": 123,
+                "first_name": "...",
+                "last_name": "...",
+                "status": "...",
+                "description": "...",
+            },
+            "assistent": { // ChatCompanionData
+                "type": "HUMAN/LLM",
+                "data": { // in case of "HUMAN" type
+                    "id": 123,
+                    "first_name": "...",
+                    "last_name": "...",
+                    "status": "...",
+                    "description": "...",
+                },
+                "data": { // in case of "LLM" type
+                    "name": "...",
+                    "description": "...",
+                }
+            }
+        },
+        "author": { // ChatCompanionData
             "type": "HUMAN/LLM",
             "data": { // in case of "HUMAN" type
                 "id": 123,
@@ -289,25 +300,52 @@
 {
     "success": true,
     "error": "...",
-    "data": [
-        "id": 123,
-        "chat_id": 123,
-        "text": "...",
-        "author": {
-            "type": "HUMAN/LLM",
-            "data": { // in case of "HUMAN" type
+    "data": [ 
+        { // MessageData
+            "id": 123,
+            "text": "...",
+            "chat": { // ChatData
                 "id": 123,
-                "first_name": "...",
-                "last_name": "...",
-                "status": "...",
-                "description": "...",
+                "student_title": "...",
+                "assistent_title": "...",
+                "student" { // UserData
+                    "id": 123,
+                    "first_name": "...",
+                    "last_name": "...",
+                    "status": "...",
+                    "description": "...",
+                },
+                "assistent": { // ChatCompanionData
+                    "type": "HUMAN/LLM",
+                    "data": { // in case of "HUMAN" type
+                        "id": 123,
+                        "first_name": "...",
+                        "last_name": "...",
+                        "status": "...",
+                        "description": "...",
+                    },
+                    "data": { // in case of "LLM" type
+                        "name": "...",
+                        "description": "...",
+                    }
+                }
             },
-            "data": { // in case of "LLM" type
-                "name": "...",
-                "description": "...",
+            "author": { // ChatCompanionData
+                "type": "HUMAN/LLM",
+                "data": { // in case of "HUMAN" type
+                    "id": 123,
+                    "first_name": "...",
+                    "last_name": "...",
+                    "status": "...",
+                    "description": "...",
+                },
+                "data": { // in case of "LLM" type
+                    "name": "...",
+                    "description": "...",
+                }
             }
         },
-        // ...
+        // ...    
     ]
 }
 ```
