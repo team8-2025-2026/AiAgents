@@ -34,6 +34,12 @@ PASSWORD_LENGTH_RANGE = range(8, 32)
 DESCRIPTION_LENGTH_RANGE = range(0, 1024)
 
 
+# Environment variables
+load_dotenv()
+CONNECTION_STRING = os.getenv('CONNECTION_STRING')
+ADMIN_ACCESS_TOKEN = os.getenv('ADMIN_ACCESS_TOKEN')
+
+
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     email: str = Field(unique=True, index=True)
@@ -56,11 +62,11 @@ class User(SQLModel, table=True):
         }
 
 
-engine = create_engine("sqlite:///database.db")
 app = FastAPI()
 salt = bcrypt.gensalt()
 
-load_dotenv()
+print("Creating db engine on the", CONNECTION_STRING)
+engine = create_engine(CONNECTION_STRING)
 SQLModel.metadata.create_all(engine)
 
 # CORS middleware для работы с фронтендом
@@ -184,7 +190,7 @@ def create_user(email: str,
         return error("Неверные параметры: status")
     
     # Check access permissions
-    if access_token != os.getenv('ADMIN_ACCESS_TOKEN'):
+    if access_token != ADMIN_ACCESS_TOKEN:
         with Session(engine) as session:
             statement = select(User).where(User.access_token == access_token)
             user = session.exec(statement).first()

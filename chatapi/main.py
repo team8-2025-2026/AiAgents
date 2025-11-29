@@ -37,6 +37,12 @@ LLM_DESCRIPION = "Я - учебный бот ассистент, " \
 MAX_MESSAGE_LENGTH = 1024
 
 
+# Environment variables
+dotenv.load_dotenv()
+CONNECTION_STRING = os.getenv('CONNECTION_STRING')
+LLM_CHAT_TOKEN = os.getenv('LLM_CHAT_TOKEN')
+
+
 class User(SQLModel, table=True):
     id: Optional[int]   = Field(default=None, primary_key=True)
     email: str          = Field(unique=True, index=True)
@@ -97,21 +103,23 @@ class Message(SQLModel, table=True):
     id: Optional[int]           = Field(default=None, primary_key=True)
     text: str                   = Field()
     chat_id: int                = Field()
-    author_id: int              = Field()
+    author_type: str            = Field()  # LLM or HUMAN
+    author_id: Optional[int]    = Field(nullable=True)  # Not null if author_type == HUMAN
 
-    def to_json(self, chat_data: dict, author_companion_data: dict) -> dict:
+    def to_json(self, chat_data: dict, author_companion_data: Optional[dict]) -> dict:
         return {
             "id": self.id,
             "text": self.text,
             "chat": chat_data,
+            "author_type": self.author_type,
             "author": author_companion_data,
         }
 
 
-dotenv.load_dotenv()
 app = FastAPI()
 
-engine = create_engine(os.getenv('CONNECTION_STRING'))
+print("Creating db engine on the", CONNECTION_STRING)
+engine = create_engine(CONNECTION_STRING)
 SQLModel.metadata.create_all(engine)
 
 
@@ -154,7 +162,7 @@ def read_chat(id: int, access_token: str):
                 return success( chat.to_json(student_user.to_json(), assistent_companion.to_json()) )
             else:
                 return error("Чат не найден")
-            
+
 
 @app.put("/chat")
 def create_chat(access_token: str):
@@ -270,8 +278,10 @@ def send_message(id: int, text: str, access_token: str):
             assistent_companion = ChatCompanion(chat.companion_type, assistent_user)
 
             if student_user is not None and student_user.access_token == access_token:
+                # Message sent by student
                 message = Message(text=text,
                                   chat_id=chat.id,
+                                  author_type=HUMAN,
                                   author_id=student_user.id)
                 
                 session.add(message)
@@ -283,9 +293,26 @@ def send_message(id: int, text: str, access_token: str):
                                     student_companion.to_json())
                 )
             elif assistent_user is not None and assistent_user.access_token == access_token:
+                # Message sent by assistant or teacher
                 message = Message(text=text,
                                   chat_id=chat.id,
-                                  author_id=assistent_user.id)
+                                  author_type=LLM,
+                                  author_id=None)
+                
+                session.add(message)
+                session.commit()
+
+                return success(
+                    message.to_json(chat.to_json(student_user.to_json(), 
+                                                 assistent_companion.to_json()),
+                                    (student_companion if student_user.id == message.author_id else assistent_companion).to_json())
+                )
+            elif chat.companion_type == LLM and access_token == LLM_CHAT_TOKEN:
+                # Message sent by LLM
+                message = Message(text=text,
+                                  chat_id=chat.id,
+                                  author_type=HUMAN,
+                                  author_id=None)
                 
                 session.add(message)
                 session.commit()
