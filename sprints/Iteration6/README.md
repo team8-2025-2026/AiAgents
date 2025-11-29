@@ -369,22 +369,32 @@
     "success": true,
     "error": "...",
     "data": [
-        "id": 123,
-        "title": "...",
-        "companion": {
-            "type": "HUMAN/LLM",
-            "data": { // in case of "HUMAN" type
+        { // ChatData
+            "id": 123,
+            "student_title": "...",
+            "assistent_title": "...",
+            "student" { // UserData
                 "id": 123,
                 "first_name": "...",
                 "last_name": "...",
                 "status": "...",
                 "description": "...",
             },
-            "data": { // in case of "LLM" type
-                "name": "...",
-                "description": "...",
+            "assistent": { // ChatCompanionData
+                "type": "HUMAN/LLM",
+                "data": { // in case of "HUMAN" type
+                    "id": 123,
+                    "first_name": "...",
+                    "last_name": "...",
+                    "status": "...",
+                    "description": "...",
+                },
+                "data": { // in case of "LLM" type
+                    "name": "...",
+                    "description": "...",
+                }
             }
-        },
+        }
         // ...
     ]
 }
