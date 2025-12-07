@@ -1,0 +1,21 @@
+version: '3.8'
+services:
+  authapi:
+    build: authapi/
+    ports:
+      - "8000:8000"
+    restart: always
+    environment:
+      - ADMIN_ACCESS_TOKEN=yuhsdfiuasdhjkavuiasyhui23y89hs897v7sn9udsf98sn9sdfusd8vjs98duf89s7s89d
+      - CONNECTION_STRING=sqlite:///database.db
+  webui:
+    build: webui/
+    depends_on:
+      - authapi
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+volumes:
+  database:
