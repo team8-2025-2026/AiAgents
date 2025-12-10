@@ -29,14 +29,14 @@ function HomePage() {
     if (chatId) {
       setSelectedChatId(chatId);
     }
-  }, [user, navigate, searchParams, loadChats]);
+  }, [user, navigate, searchParams]);
 
   // Перезагружаем чаты при изменении фильтров (для учителей)
   useEffect(() => {
     if (user && user.status === 'TEACHER') {
       loadChats();
     }
-  }, [filters, user, loadChats]);
+  }, [filters, user]);
 
   const loadChats = useCallback(async () => {
     try {
@@ -67,19 +67,33 @@ function HomePage() {
     if (user.status === 'STUDENT') {
       try {
         const newChat = await chatAPI.createChat();
+        console.log('Created chat:', newChat);
+        
+        // Безопасное форматирование данных чата
         const formattedChat = {
-          id: newChat.id,
-          title: newChat.title || newChat.student_title || 'Новый чат',
-          student_id: newChat.student?.id || null,
+          id: newChat?.id || null,
+          title: newChat?.title || newChat?.student_title || newChat?.assistent_title || 'Новый чат',
+          student_id: newChat?.student?.id || (typeof newChat?.student === 'object' && newChat?.student ? newChat.student.id : null) || null,
           status: 'open',
           last_message: '',
         };
+        
+        if (!formattedChat.id) {
+          throw new Error('Не удалось получить ID созданного чата');
+        }
+        
         setChats([formattedChat, ...chats]);
-        handleChatSelect(newChat.id);
+        // Небольшая задержка перед выбором чата, чтобы состояние обновилось
+        setTimeout(() => {
+          handleChatSelect(formattedChat.id);
+        }, 100);
       } catch (error) {
         console.error('Failed to create chat:', error);
-        alert('Не удалось создать чат. Попробуйте еще раз.');
+        const errorMessage = error.message || 'Не удалось создать чат. Попробуйте еще раз.';
+        alert(errorMessage);
       }
+    } else {
+      alert('Только студенты могут создавать чаты');
     }
   };
 
@@ -119,47 +133,66 @@ function HomePage() {
   };
 
   if (!user) {
-    return null;
-  }
-
-  return (
-    <div className="home-page">
-      <div className="sidebar">
-        <ChatList
-          chats={chats}
-          selectedChatId={selectedChatId}
-          onChatSelect={handleChatSelect}
-          onNewChat={user.status === 'STUDENT' ? handleNewChat : null}
-          onChatDelete={user.status === 'STUDENT' ? handleChatDelete : null}
-          onChatRename={handleChatRename}
-          userStatus={user.status}
-          filters={user.status === 'TEACHER' ? filters : null}
-          onFiltersChange={user.status === 'TEACHER' ? setFilters : null}
-        />
-      </div>
-      <div className="main-content">
-        <Header user={user} />
-        <div className="chat-container">
-          {selectedChatId ? (
-            <ChatInterface
-              chatId={selectedChatId}
-              user={user}
-              chats={chats}
-              onChatNotFound={() => {
-                setSelectedChatId(null);
-                setSearchParams({});
-              }}
-            />
-          ) : (
-            <div className="welcome-screen">
-              <h1>Добро пожаловать, {user.first_name}!</h1>
-              <p>Выберите чат из списка слева или создайте новый</p>
-            </div>
-          )}
+    return (
+      <div className="home-page">
+        <div style={{ padding: '20px', textAlign: 'center' }}>
+          <p>Загрузка...</p>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  try {
+    return (
+      <div className="home-page">
+        <div className="sidebar">
+          <ChatList
+            chats={chats}
+            selectedChatId={selectedChatId}
+            onChatSelect={handleChatSelect}
+            onNewChat={user.status === 'STUDENT' ? handleNewChat : null}
+            onChatDelete={user.status === 'STUDENT' ? handleChatDelete : null}
+            onChatRename={handleChatRename}
+            userStatus={user.status}
+            filters={user.status === 'TEACHER' ? filters : null}
+            onFiltersChange={user.status === 'TEACHER' ? setFilters : null}
+          />
+        </div>
+        <div className="main-content">
+          <Header user={user} />
+          <div className="chat-container">
+            {selectedChatId ? (
+              <ChatInterface
+                chatId={selectedChatId}
+                user={user}
+                chats={chats}
+                onChatNotFound={() => {
+                  setSelectedChatId(null);
+                  setSearchParams({});
+                }}
+              />
+            ) : (
+              <div className="welcome-screen">
+                <h1>Добро пожаловать, {user.first_name}!</h1>
+                <p>Выберите чат из списка слева или создайте новый</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  } catch (error) {
+    console.error('Error rendering HomePage:', error);
+    return (
+      <div className="home-page">
+        <div style={{ padding: '20px', textAlign: 'center', color: 'white' }}>
+          <h2>Произошла ошибка</h2>
+          <p>{error.message}</p>
+          <button onClick={() => window.location.reload()}>Перезагрузить страницу</button>
+        </div>
+      </div>
+    );
+  }
 }
 
 export default HomePage;
