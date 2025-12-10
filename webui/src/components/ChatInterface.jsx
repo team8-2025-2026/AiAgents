@@ -8,11 +8,29 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
   const [loading, setLoading] = useState(false);
   const [chatNotFound, setChatNotFound] = useState(false);
   const messagesEndRef = useRef(null);
+  const checkIntervalRef = useRef(null);
 
   useEffect(() => {
+    if (!chatId) {
+      return;
+    }
+    
+    // Очищаем предыдущий интервал проверки ответа
+    if (checkIntervalRef.current) {
+      clearInterval(checkIntervalRef.current);
+      checkIntervalRef.current = null;
+    }
+    
+    // Сбрасываем состояние загрузки при смене чата
+    setLoading(false);
+    
     // Проверяем доступ к чату
     if (chats && chats.length > 0) {
-      const chatExists = chats.some(chat => chat.id === chatId || chat.id === String(chatId));
+      const chatExists = chats.some(chat => {
+        const chatIdNum = typeof chat.id === 'number' ? chat.id : parseInt(chat.id);
+        const selectedIdNum = typeof chatId === 'number' ? chatId : parseInt(chatId);
+        return chatIdNum === selectedIdNum || chat.id === String(chatId) || String(chat.id) === String(chatId);
+      });
       if (!chatExists) {
         setChatNotFound(true);
         return;
@@ -22,8 +40,15 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
     loadMessages();
     // Устанавливаем интервал для обновления сообщений каждые 5 секунд
     const interval = setInterval(loadMessages, 5000);
-    return () => clearInterval(interval);
-  }, [chatId, chats, loadMessages]);
+    return () => {
+      clearInterval(interval);
+      if (checkIntervalRef.current) {
+        clearInterval(checkIntervalRef.current);
+        checkIntervalRef.current = null;
+      }
+      setLoading(false);
+    };
+  }, [chatId, chats]);
 
   useEffect(() => {
     scrollToBottom();
@@ -38,12 +63,29 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
     
     try {
       const loadedMessages = await chatAPI.getMessages(chatId);
-      setMessages(loadedMessages);
+      if (Array.isArray(loadedMessages)) {
+        setMessages(loadedMessages);
+        // Если загружаем сообщения и loading активен, но уже есть ответ от assistant,
+        // значит ответ уже получен, останавливаем анимацию
+        if (loading) {
+          const hasAssistantMessage = loadedMessages.some(msg => msg.role === 'assistant');
+          if (hasAssistantMessage) {
+            setLoading(false);
+            if (checkIntervalRef.current) {
+              clearInterval(checkIntervalRef.current);
+              checkIntervalRef.current = null;
+            }
+          }
+        }
+      } else {
+        setMessages([]);
+      }
     } catch (error) {
       console.error('Failed to load messages:', error);
-      // В случае ошибки оставляем текущие сообщения
+      // В случае ошибки оставляем пустой массив для нового чата
+      setMessages([]);
     }
-  }, [chatId]);
+  }, [chatId, loading]);
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -80,11 +122,74 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
       }
 
       // Если это LLM чат, ответ должен прийти автоматически
-      // Перезагружаем сообщения для получения ответа
+      // Перезагружаем сообщения для получения ответа с задержкой
+      // Сначала показываем анимацию "мышления", потом проверяем ответ
+      const messageIdsBefore = new Set(messages.map(m => m.id));
+      let responseReceived = false; // Флаг для отслеживания получения ответа
+      
       setTimeout(async () => {
-        await loadMessages();
-        setLoading(false);
-      }, 1000);
+        // Проверяем, появился ли новый ответ от LLM
+        const checkForResponse = async () => {
+          if (responseReceived) {
+            return true; // Ответ уже получен, не проверяем дальше
+          }
+          
+          try {
+            const currentMessages = await chatAPI.getMessages(chatId);
+            if (Array.isArray(currentMessages)) {
+              // Проверяем, есть ли новое сообщение от assistant (LLM)
+              const hasNewAssistantMessage = currentMessages.some(msg => 
+                msg.role === 'assistant' && !messageIdsBefore.has(msg.id)
+              );
+              
+              if (hasNewAssistantMessage) {
+                // Ответ получен, обновляем сообщения и останавливаем анимацию
+                responseReceived = true;
+                setMessages(currentMessages);
+                setLoading(false);
+                if (checkIntervalRef.current) {
+                  clearInterval(checkIntervalRef.current);
+                  checkIntervalRef.current = null;
+                }
+                return true; // Ответ получен
+              }
+              
+              // Обновляем сообщения на всякий случай
+              setMessages(currentMessages);
+            }
+          } catch (error) {
+            console.error('Error checking for response:', error);
+          }
+          return false; // Ответ еще не получен
+        };
+        
+        // Проверяем ответ каждую секунду, максимум 8 раз (всего до 10 секунд)
+        let attempts = 0;
+        checkIntervalRef.current = setInterval(async () => {
+          if (responseReceived) {
+            // Ответ уже получен, останавливаем проверку
+            if (checkIntervalRef.current) {
+              clearInterval(checkIntervalRef.current);
+              checkIntervalRef.current = null;
+            }
+            setLoading(false);
+            return;
+          }
+          
+          attempts++;
+          const received = await checkForResponse();
+          
+          // Останавливаем проверку если получили ответ или прошло 8 секунд
+          if (received || attempts >= 8) {
+            if (checkIntervalRef.current) {
+              clearInterval(checkIntervalRef.current);
+              checkIntervalRef.current = null;
+            }
+            setLoading(false);
+            responseReceived = true;
+          }
+        }, 1000);
+      }, 2000); // Начинаем проверку через 2 секунды
     } catch (error) {
       console.error('Failed to send message:', error);
       // Удаляем временное сообщение при ошибке
@@ -110,60 +215,77 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
     );
   }
 
-  return (
-    <div className="chat-interface">
-      <div className="chat-messages">
-        {messages.length === 0 ? (
-          <div className="empty-chat">
-            <p>Начните диалог, отправив сообщение</p>
-          </div>
-        ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={`message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`}
-            >
-              <div className="message-content">{message.content}</div>
+  try {
+    return (
+      <div className="chat-interface">
+        <div className="chat-messages">
+          {messages.length === 0 ? (
+            <div className="empty-chat">
+              <p>Начните диалог, отправив сообщение</p>
             </div>
-          ))
-        )}
-        {loading && (
-          <div className="message assistant-message">
-            <div className="message-content typing-indicator">
-              <span></span>
-              <span></span>
-              <span></span>
+          ) : (
+            messages.map((message) => (
+              <div
+                key={message.id || `msg-${Date.now()}-${Math.random()}`}
+                className={`message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`}
+              >
+                <div className="message-content">{message.content || message.text || ''}</div>
+              </div>
+            ))
+          )}
+          {loading && (
+            <div className="message assistant-message">
+              <div className="message-content typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
             </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-      <form onSubmit={handleSend} className="chat-input-form">
-        <div className="chat-input-container">
-          <textarea
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSend(e);
-              }
-            }}
-            placeholder="Введите сообщение..."
-            rows={1}
-            className="chat-input"
-          />
-          <button
-            type="submit"
-            disabled={!inputValue.trim() || loading}
-            className="send-button"
-          >
-            Отправить
-          </button>
+          )}
+          <div ref={messagesEndRef} />
         </div>
-      </form>
-    </div>
-  );
+        <form onSubmit={handleSend} className="chat-input-form">
+          <div className="chat-input-container">
+            <textarea
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend(e);
+                }
+              }}
+              placeholder="Введите сообщение..."
+              rows={1}
+              className="chat-input"
+            />
+            <button
+              type="submit"
+              disabled={!inputValue.trim() || loading}
+              className="send-button"
+            >
+              Отправить
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  } catch (error) {
+    console.error('Error rendering ChatInterface:', error);
+    return (
+      <div className="chat-interface">
+        <div className="chat-error">
+          <h2>Ошибка</h2>
+          <p>{error.message || 'Произошла ошибка при загрузке чата'}</p>
+          {onChatNotFound && (
+            <button onClick={onChatNotFound} className="back-button">
+              Вернуться на главную
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 }
 
 export default ChatInterface;
