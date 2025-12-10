@@ -87,6 +87,8 @@ LLM_CHAT_TOKEN=V0MP0Pd82FQ0FWkSl9AXsCWetxsrekijGACCRLD9XDOG1zVrba
 MODEL_PATH=./models/Qwen3-0.6B
 CHECK_CUDA=true
 CHAT_API=http://127.0.0.1:8001
+VITE_API_URL=http://localhost:8000
+VITE_CHAT_API_URL=http://localhost:8001
 ```
 
 ### Запуск
@@ -96,6 +98,14 @@ CHAT_API=http://127.0.0.1:8001
 
 ```bash
 docker compose up
+```
+
+**!!! Важно:** если какой-то код обновился, 
+то перед этим нужно будет пересобрать соответствующий ему docker образ.
+Например, если был изменен код в [authapi/](./authapi/), то нужно будет вызвать после
+
+```bash
+docker compose build authapi
 ```
 
 #### Запуск в даемоне
