@@ -1,0 +1,50 @@
+version: '3.8'
+services:
+  authapi:
+    env_file: ".env"
+    build: authapi/
+    ports:
+      - "8000:8000"
+    restart: always
+    environment:
+      - ADMIN_ACCESS_TOKEN=${ADMIN_ACCESS_TOKEN}
+      - CONNECTION_STRING=${CONNECTION_STRING}
+    volumes:
+      - ./database.db:/authapi/database.db
+  chatapi:
+    env_file: ".env"
+    build: chatapi/
+    ports:
+      - "8001:8001"
+    restart: always
+    environment:
+      - LLM_CHAT_TOKEN=${LLM_CHAT_TOKEN}
+      - CONNECTION_STRING=${CONNECTION_STRING}
+    volumes:
+      - ./database.db:/chatapi/database.db
+  llmapi:
+    env_file: ".env"
+    build: llmapi/
+    ports:
+      - "8002:8002"
+    restart: always
+    environment:
+      - LLM_CHAT_TOKEN=${LLM_CHAT_TOKEN}
+      - MODEL_PATH=${MODEL_PATH}
+      - CHECK_CUDA=${CHECK_CUDA}
+      - CHAT_API=${CHAT_API}
+    volumes:
+      - ./database.db:/llmapi/database.db
+  webui:
+    env_file: ".env"
+    build: webui/
+    depends_on:
+      - authapi
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=${AUTH_API}
+      - VITE_CHAT_API_URL=${CHAT_API}
+volumes:
+  database:
