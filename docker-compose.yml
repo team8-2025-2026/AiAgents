@@ -8,6 +8,30 @@ services:
     environment:
       - ADMIN_ACCESS_TOKEN=yuhsdfiuasdhjkavuiasyhui23y89hs897v7sn9udsf98sn9sdfusd8vjs98duf89s7s89d
       - CONNECTION_STRING=sqlite:///database.db
+    volumes:
+      - ./database.db:/authapi/database.db
+  chatapi:
+    build: chatapi/
+    ports:
+      - "8001:8001"
+    restart: always
+    environment:
+      - CONNECTION_STRING=sqlite:///database.db
+      - LLM_CHAT_TOKEN=V4d8i<9pKKKR>1+o^U&K<?){({!#Kr0HjA3WdTrW5Qnq2CL;££
+    volumes:
+      - ./database.db:/chatapi/database.db
+  llmapi:
+    build: llmapi/
+    ports:
+      - "8002:8002"
+    restart: always
+    environment:
+      - MODEL_PATH=./models/Qwen3-0.6B
+      - CHECK_CUDA=true
+      - CHAT_API=http://127.0.0.1:8001
+      - LLM_CHAT_TOKEN=V4d8i<9pKKKR>1+o^U&K<?){({!#Kr0HjA3WdTrW5Qnq2CL;££
+    volumes:
+      - ./database.db:/llmapi/database.db
   webui:
     build: webui/
     depends_on:
