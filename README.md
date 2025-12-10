@@ -22,47 +22,92 @@
 - Python 3.8+
 - Node.js 16+
 - npm или yarn
+- Docker and Docker compose
+- LLM models installed
 
-### Установка и запуск
+### Установка
 
-1. **Запуск Auth API:**
-
-**Windows (PowerShell):**
-```powershell
-cd authapi
-python -m pip install -r requirements.txt
-python -m uvicorn main:app --reload --port 8000
-```
-
-**Linux/Mac:**
-```bash
-cd authapi
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
-```
-
-Auth API будет доступен на `http://localhost:8000`
-
-2. **Запуск WebUI:**
+#### Install `git xet`
 
 ```bash
-cd webui
-npm install
-npm run dev
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/huggingface/xet-core/refs/heads/main/git_xet/install.sh | sh
 ```
 
-WebUI будет доступен на `http://localhost:3000`
+#### Check installation
 
-### Переменные окружения
-
-Для Auth API создайте файл `.env` в папке `authapi/`:
-```
-ADMIN_ACCESS_TOKEN=your_admin_token_here
+```bash
+git xet --version
 ```
 
-Для WebUI создайте файл `.env` в папке `webui/`:
+#### Clone model repository
+
+Это может занять некоторое объёмное время.
+Я рекомендую взять `Qwen3-1.7B`, но если прямо не тянет компьютер, то `Qwen3-0.6B`.
+
+##### Qwen3-0.6B: весит 1.5GB
+
+```bash
+export MODEL_REPOSITORY="https://huggingface.co/Qwen/Qwen3-0.6B"
 ```
-VITE_API_URL=http://localhost:8000
+
+##### Qwen3-1.7B: весит 4GB
+
+```bash
+export MODEL_REPOSITORY="https://huggingface.co/Qwen/Qwen3-1.7B"
+```
+
+##### Qwen3-4B: весит 8GB:
+
+```bash
+export MODEL_REPOSITORY="git clone https://huggingface.co/Qwen/Qwen3-4B"
+```
+
+##### YandexGPT-5-Lite-8B-pretrain: весит 30GB:
+
+```bash
+export MODEL_REPOSITORY="git clone https://huggingface.co/yandex/YandexGPT-5-Lite-8B-pretrain"
+```
+
+#### Загрузка модели
+
+```bash
+cd llmapi/; mkdir models/ ; cd models/
+git clone $MODEL_REPOSITORY
+cd ../
+```
+
+### Настройка переменных окружения
+
+Заполнить [.env](.env) файл. Пример файла?
+
+```Properties
+CONNECTION_STRING=sqlite:///database.db
+ADMIN_ACCESS_TOKEN=FHj0osc0461Yc7KT4Hpgbg91f326OtGpghHBS6qiCKTBlJjg6L
+LLM_CHAT_TOKEN=V0MP0Pd82FQ0FWkSl9AXsCWetxsrekijGACCRLD9XDOG1zVrba
+MODEL_PATH=./models/Qwen3-0.6B
+CHECK_CUDA=true
+CHAT_API=http://127.0.0.1:8001
+```
+
+### Запуск
+
+Запускает докер контейнеры для всех апи (и клиента в том числе).
+При первом запуске будет очень долго, потому что создаются докер образы.
+
+```bash
+docker compose up
+```
+
+#### Запуск в даемоне
+
+```bash
+docker compose up -d
+```
+
+#### Остановка (при запуске в даемоне)
+
+```bash
+docker compose down
 ```
 
 ## 📁 Структура проекта
