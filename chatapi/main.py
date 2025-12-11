@@ -5,7 +5,6 @@ from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 from dataclasses import dataclass
-import dotenv
 from pathlib import Path
 import bcrypt
 import random
@@ -14,6 +13,7 @@ import time
 import os
 import re
 import threading
+import requests
 
 
 # Companion.type
@@ -38,6 +38,13 @@ LLM_DESCRIPION = "Я - учебный бот ассистент, " \
 
 # Message constants
 MAX_MESSAGE_LENGTH = 1024
+HISTORY_SIZE = 10
+
+
+# Environment variables
+CONNECTION_STRING = os.getenv('CONNECTION_STRING')
+LLM_CHAT_TOKEN = os.getenv('LLM_CHAT_TOKEN')
+LLM_API = os.getenv('LLM_API')
 
 
 class User(SQLModel, table=True):
@@ -100,27 +107,24 @@ class Message(SQLModel, table=True):
     id: Optional[int]           = Field(default=None, primary_key=True)
     text: str                   = Field()
     chat_id: int                = Field()
-    author_id: int              = Field()
+    author_type: str            = Field()  # LLM or HUMAN
+    author_id: Optional[int]    = Field(nullable=True)  # Not null if author_type == HUMAN
 
-    def to_json(self, chat_data: dict, author_companion_data: dict) -> dict:
+    def to_json(self, chat_data: dict, author_companion_data: Optional[dict]) -> dict:
         return {
             "id": self.id,
             "text": self.text,
             "chat": chat_data,
+            "author_type": self.author_type,
             "author": author_companion_data,
         }
 
 
-# Загружаем .env файл из папки chatapi
-env_path = Path(__file__).parent / ".env"
-dotenv.load_dotenv(dotenv_path=env_path)
-app = FastAPI()
-
-connection_string = os.getenv('CONNECTION_STRING')
-if connection_string is None:
+if CONNECTION_STRING is None:
     raise ValueError("CONNECTION_STRING не найден в .env файле. Создайте файл chatapi/.env с CONNECTION_STRING=sqlite:///database.db")
 
-engine = create_engine(connection_string)
+app = FastAPI()
+engine = create_engine(CONNECTION_STRING)
 SQLModel.metadata.create_all(engine)
 
 # CORS middleware для работы с фронтендом
@@ -288,8 +292,10 @@ def send_message(id: int, text: str, access_token: str):
             assistent_companion = ChatCompanion(chat.companion_type, assistent_user)
 
             if student_user is not None and student_user.access_token == access_token:
+                # Message sent by student
                 message = Message(text=text,
                                   chat_id=chat.id,
+                                  author_type=HUMAN,
                                   author_id=student_user.id)
                 
                 session.add(message)
@@ -297,21 +303,27 @@ def send_message(id: int, text: str, access_token: str):
                 
                 # Если это LLM чат, создаем ответ от бота-заглушки с задержкой
                 if chat.companion_type == LLM:
-                    # Запускаем создание ответа в отдельном потоке с задержкой
-                    def create_llm_response():
-                        time.sleep(2)  # Задержка 2 секунды для показа анимации "мышления"
-                        with Session(engine) as response_session:
-                            llm_response_text = "Роналду: АГУ АГУ АУГ"
-                            llm_message = Message(text=llm_response_text,
-                                                 chat_id=chat.id,
-                                                 author_id=0)  # 0 означает сообщение от LLM
-                            response_session.add(llm_message)
-                            response_session.commit()
+                    messages = session \
+                        .exec(
+                            select(Message) \
+                                .where(Message.chat_id == chat.id)
+                                .order_by(Message.id.desc())
+                                .limit(HISTORY_SIZE)
+                        ) \
+                        .all()
                     
-                    # Запускаем в отдельном потоке, чтобы не блокировать ответ
-                    thread = threading.Thread(target=create_llm_response)
-                    thread.daemon = True
-                    thread.start()
+                    llm_history = []
+                    for message in reversed(messages):
+                        if message.author_type == STUDENT and message.author_id == student_user:
+                            llm_history.append({ "author": "user", "text": message.text })
+                        else:
+                            llm_history.append({ "author": "assistant", "text": message.text })
+
+                    response = requests.post(f"{LLM_API}/ask", params={
+                        "chat_id": chat.id
+                    }, json=llm_history)
+
+                    print(f"Got responce with code {response.status_code}")
 
                 return success( 
                     message.to_json(chat.to_json(student_user.to_json(),
@@ -319,9 +331,26 @@ def send_message(id: int, text: str, access_token: str):
                                     student_companion.to_json())
                 )
             elif assistent_user is not None and assistent_user.access_token == access_token:
+                # Message sent by assistant or teacher
                 message = Message(text=text,
                                   chat_id=chat.id,
-                                  author_id=assistent_user.id)
+                                  author_type=LLM,
+                                  author_id=None)
+                
+                session.add(message)
+                session.commit()
+
+                return success(
+                    message.to_json(chat.to_json(student_user.to_json(), 
+                                                 assistent_companion.to_json()),
+                                    (student_companion if student_user.id == message.author_id else assistent_companion).to_json())
+                )
+            elif chat.companion_type == LLM and access_token == LLM_CHAT_TOKEN:
+                # Message sent by LLM
+                message = Message(text=text,
+                                  chat_id=chat.id,
+                                  author_type=HUMAN,
+                                  author_id=None)
                 
                 session.add(message)
                 session.commit()

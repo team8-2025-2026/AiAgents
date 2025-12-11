@@ -4,15 +4,17 @@ from dataclasses import dataclass
 from typing import Optional, List
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
-import dotenv
+import concurrent.futures
+import requests
 import torch
 import os
 
 
 @dataclass
 class AppContext:
-    model: Optional[AutoModelForCausalLM]
-    tokenizer: Optional[AutoTokenizer]
+    model: Optional[AutoModelForCausalLM] = None
+    tokenizer: Optional[AutoTokenizer] = None
+    thread_pool: Optional[concurrent.futures.ThreadPoolExecutor] = None
 
 
 class AskRequestHistoryItem(BaseModel):
@@ -20,11 +22,21 @@ class AskRequestHistoryItem(BaseModel):
     author: str
 
 
+# Enviroment variables
+MODEL_PATH = os.getenv('MODEL_PATH')
+CHECK_CUDA = os.getenv('CHECK_CUDA')
+CHAT_API = os.getenv('CHAT_API')
+LLM_CHAT_TOKEN = os.getenv('LLM_CHAT_TOKEN')
+
+
+# Constants
+SEND_MESSAGE_ATTEMPTS = 5
+
+
 @asynccontextmanager
 async def load_app_context(app: FastAPI):
-    dotenv.load_dotenv()
-    model_path = os.getenv('MODEL_PATH')
-    check_cuda = os.getenv('CHECK_CUDA') == 'true'
+    model_path = MODEL_PATH
+    check_cuda = CHECK_CUDA == 'true'
     context.tokenizer = AutoTokenizer.from_pretrained(model_path)
     
     if check_cuda and torch.cuda.is_available():
@@ -34,15 +46,18 @@ async def load_app_context(app: FastAPI):
         print("CUDA is not available. Loading model on CPU.")
         context.model = AutoModelForCausalLM.from_pretrained(model_path)
 
-    yield
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        context.thread_pool = executor
+
+        yield
+
 
 app =       FastAPI(lifespan=load_app_context)
-context =   AppContext(model=None,
-                     tokenizer=None)
+context =   AppContext()
 
 
-@app.post("/ask")
-def ask(history: List[AskRequestHistoryItem]):
+def process_answer(chat_id: int, history: List[AskRequestHistoryItem]):
+    print("Processing answer")
     messages = []
 
     for item in history:
@@ -61,15 +76,34 @@ def ask(history: List[AskRequestHistoryItem]):
         inputs = context.tokenizer(text, return_tensors="pt").to(context.model.device)
         response_ids = context.model.generate(**inputs, max_new_tokens=32768)[0][len(inputs.input_ids[0]):].tolist()
         response = context.tokenizer.decode(response_ids, skip_special_tokens=True)
+        print(f"Got response {response}")
     except Exception as ex:
-        return {
-            "success": False,
-            "error": "Неопределённая ошибка во время выполнения: " + str(ex)
-        }
+        print("[ERROR]", ex)
+
+        response = "Северная ошибка произошла во время попытки ответа, напишите позже."
     
-    return {
-        "success": True,
-        "data": {
-            "text": response
-        }
-    }
+    for _ in range(SEND_MESSAGE_ATTEMPTS):
+        print("Sending response")
+        response = requests.post(f"{CHAT_API}/chat/send_message", params={
+            "id": chat_id,
+            "text": response,
+            "access_token": LLM_CHAT_TOKEN
+        })
+
+        if response.status_code == 200:
+            break
+    print("Done")
+    
+
+
+@app.post("/ask")
+def ask(chat_id: int, history: List[AskRequestHistoryItem]):
+    """
+    Запрашивает ответа у LLM.
+    Возвращает "success" = True, если сообщение принято в обработку, False - иначе.
+    А сам результат ответа LLM-ки возвращается асинхронно, отправляя сообщение в нужный чат с помощью f"{CHAT_API}/chat/send_message"
+    """
+
+    context.thread_pool.submit(process_answer, chat_id=chat_id, history=history)
+    
+    return { "success": True }

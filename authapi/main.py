@@ -4,7 +4,6 @@ from typing import Optional, Union
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Field, Session, SQLModel, create_engine, select
-from dotenv import load_dotenv
 import bcrypt
 import random
 import string
@@ -34,6 +33,11 @@ PASSWORD_LENGTH_RANGE = range(8, 32)
 DESCRIPTION_LENGTH_RANGE = range(0, 1024)
 
 
+# Environment variables
+CONNECTION_STRING = os.getenv('CONNECTION_STRING')
+ADMIN_ACCESS_TOKEN = os.getenv('ADMIN_ACCESS_TOKEN')
+
+
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     email: str = Field(unique=True, index=True)
@@ -55,11 +59,13 @@ class User(SQLModel, table=True):
             "access_token": self.access_token
         }
 
-load_dotenv()
-engine = create_engine(os.getenv('CONNECTION_STRING'))
-app = FastAPI()
-salt = bcrypt.gensalt()
 
+if CONNECTION_STRING is None:
+    raise ValueError("CONNECTION_STRING не найден в .env файле. Создайте файл chatapi/.env с CONNECTION_STRING=sqlite:///database.db")
+
+app = FastAPI()
+engine = create_engine(CONNECTION_STRING)
+salt = bcrypt.gensalt()
 SQLModel.metadata.create_all(engine)
 
 # CORS middleware для работы с фронтендом
@@ -183,7 +189,7 @@ def create_user(email: str,
         return error("Неверные параметры: status")
     
     # Check access permissions
-    if access_token != os.getenv('ADMIN_ACCESS_TOKEN'):
+    if access_token != ADMIN_ACCESS_TOKEN:
         with Session(engine) as session:
             statement = select(User).where(User.access_token == access_token)
             user = session.exec(statement).first()
