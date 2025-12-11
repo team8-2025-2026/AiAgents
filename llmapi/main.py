@@ -58,6 +58,7 @@ context =   AppContext()
 
 
 def process_answer(chat_id: int, history: List[AskRequestHistoryItem]):
+    print("Processing answer")
     messages = []
 
     for item in history:
@@ -76,12 +77,14 @@ def process_answer(chat_id: int, history: List[AskRequestHistoryItem]):
         inputs = context.tokenizer(text, return_tensors="pt").to(context.model.device)
         response_ids = context.model.generate(**inputs, max_new_tokens=32768)[0][len(inputs.input_ids[0]):].tolist()
         response = context.tokenizer.decode(response_ids, skip_special_tokens=True)
+        print(f"Got response {response}")
     except Exception as ex:
         print("[ERROR]", ex)
 
         response = "Северная ошибка произошла во время попытки ответа, напишите позже."
     
     for _ in range(SEND_MESSAGE_ATTEMPTS):
+        print("Sending response")
         response = requests.post(f"{CHAT_API}/chat/send_message", params={
             "id": chat_id,
             "text": response,
@@ -90,6 +93,8 @@ def process_answer(chat_id: int, history: List[AskRequestHistoryItem]):
 
         if response.status_code == 200:
             break
+    print("Done")
+    
 
 
 @app.post("/ask")

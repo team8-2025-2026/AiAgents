@@ -5,6 +5,8 @@ services:
     build: authapi/
     ports:
       - "8000:8000"
+    networks:
+      - custom_network
     restart: always
     environment:
       - ADMIN_ACCESS_TOKEN=${ADMIN_ACCESS_TOKEN}
@@ -16,10 +18,13 @@ services:
     build: chatapi/
     ports:
       - "8001:8001"
+    networks:
+      - custom_network
     restart: always
     environment:
       - LLM_CHAT_TOKEN=${LLM_CHAT_TOKEN}
       - CONNECTION_STRING=${CONNECTION_STRING}
+      - LLM_API=${LLM_API}
     volumes:
       - ./database.db:/chatapi/database.db
   llmapi:
@@ -27,6 +32,8 @@ services:
     build: llmapi/
     ports:
       - "8002:8002"
+    networks:
+      - custom_network
     restart: always
     environment:
       - LLM_CHAT_TOKEN=${LLM_CHAT_TOKEN}
@@ -43,8 +50,13 @@ services:
     restart: always
     ports:
       - "3000:3000"
+    networks:
+      - custom_network
     environment:
-      - VITE_API_URL=${AUTH_API}
-      - VITE_CHAT_API_URL=${CHAT_API}
+      - VITE_API_URL=${VITE_AUTH_API}
+      - VITE_CHAT_API_URL=${VITE_CHAT_API}
 volumes:
   database:
+networks:
+  custom_network:
+    name: custom_network
