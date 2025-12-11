@@ -6,7 +6,6 @@ from pydantic import BaseModel
 from contextlib import asynccontextmanager
 import concurrent.futures
 import requests
-import dotenv
 import torch
 import os
 
@@ -24,7 +23,6 @@ class AskRequestHistoryItem(BaseModel):
 
 
 # Enviroment variables
-dotenv.load_dotenv()
 MODEL_PATH = os.getenv('MODEL_PATH')
 CHECK_CUDA = os.getenv('CHECK_CUDA')
 CHAT_API = os.getenv('CHAT_API')
@@ -52,6 +50,7 @@ async def load_app_context(app: FastAPI):
         context.thread_pool = executor
 
         yield
+
 
 app =       FastAPI(lifespan=load_app_context)
 context =   AppContext()

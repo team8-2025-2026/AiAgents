@@ -5,7 +5,6 @@ from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 from dataclasses import dataclass
-import dotenv
 from pathlib import Path
 import bcrypt
 import random
@@ -43,7 +42,6 @@ HISTORY_SIZE = 10
 
 
 # Environment variables
-dotenv.load_dotenv()
 CONNECTION_STRING = os.getenv('CONNECTION_STRING')
 LLM_CHAT_TOKEN = os.getenv('LLM_CHAT_TOKEN')
 LLM_API = os.getenv('LLM_API')

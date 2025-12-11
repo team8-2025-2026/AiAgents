@@ -42,6 +42,13 @@ services:
       - CHAT_API=${CHAT_API}
     volumes:
       - ./database.db:/llmapi/database.db
+    deploy: # Comment this section if you are using non-nvidia gpu
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
   webui:
     env_file: ".env"
     build: webui/
