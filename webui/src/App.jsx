@@ -6,6 +6,7 @@ import HomePage from './pages/HomePage';
 import UserPage from './pages/UserPage';
 import SettingsPage from './pages/SettingsPage';
 import ManagePage from './pages/ManagePage';
+import './styles/index.css';
 
 // Защищенный маршрут
 const ProtectedRoute = ({ children }) => {

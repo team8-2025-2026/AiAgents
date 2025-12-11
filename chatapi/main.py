@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 from typing import Optional, Union
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 from dataclasses import dataclass
 import dotenv
+from pathlib import Path
 import bcrypt
 import random
 import string
 import time
 import os
 import re
+import threading
 
 
 # Companion.type
@@ -116,11 +119,24 @@ class Message(SQLModel, table=True):
         }
 
 
+dotenv.load_dotenv()
 app = FastAPI()
 
-print("Creating db engine on the", CONNECTION_STRING)
-engine = create_engine(CONNECTION_STRING)
+connection_string = os.getenv('CONNECTION_STRING')
+if connection_string is None:
+    raise ValueError("CONNECTION_STRING не найден в .env файле. Создайте файл chatapi/.env с CONNECTION_STRING=sqlite:///database.db")
+
+engine = create_engine(connection_string)
 SQLModel.metadata.create_all(engine)
+
+# CORS middleware для работы с фронтендом
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # В продакшене указать конкретные домены
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 #region Return utils
@@ -286,6 +302,24 @@ def send_message(id: int, text: str, access_token: str):
                 
                 session.add(message)
                 session.commit()
+                
+                # Если это LLM чат, создаем ответ от бота-заглушки с задержкой
+                if chat.companion_type == LLM:
+                    # Запускаем создание ответа в отдельном потоке с задержкой
+                    def create_llm_response():
+                        time.sleep(2)  # Задержка 2 секунды для показа анимации "мышления"
+                        with Session(engine) as response_session:
+                            llm_response_text = "Роналду: АГУ АГУ АУГ"
+                            llm_message = Message(text=llm_response_text,
+                                                 chat_id=chat.id,
+                                                 author_id=0)  # 0 означает сообщение от LLM
+                            response_session.add(llm_message)
+                            response_session.commit()
+                    
+                    # Запускаем в отдельном потоке, чтобы не блокировать ответ
+                    thread = threading.Thread(target=create_llm_response)
+                    thread.daemon = True
+                    thread.start()
 
                 return success( 
                     message.to_json(chat.to_json(student_user.to_json(),
@@ -352,9 +386,12 @@ def read_history(id: int, access_token: str):
 
                 return success(
                     list(map(
-                        lambda message: message.to_json(chat.to_json(student_user.to_json(), 
-                                                                     assistent_companion.to_json()), 
-                                                        (student_companion if student_user.id == message.author_id else assistent_companion).to_json()),
+                        lambda message: message.to_json(
+                            chat.to_json(student_user.to_json(), assistent_companion.to_json()), 
+                            # Если author_id == 0, это сообщение от LLM
+                            (ChatCompanion(LLM, None) if message.author_id == 0 
+                             else (student_companion if student_user.id == message.author_id else assistent_companion)).to_json()
+                        ),
                         messages
                     ))
                 )
