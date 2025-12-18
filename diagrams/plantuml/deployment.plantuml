@@ -10,9 +10,6 @@ node "Student Web App" as StudentClient {
 node "Consultant Web App" as ConsultantClient {
 }
 
-node "Teacher Web App" as TeacherClient {
-}
-
 node "Application Server" as AppServer {
   component "Chat API"
   component "Auth API"
@@ -34,7 +31,6 @@ node "LLM Service (Cloud)" as LLMNode {
 
 
 StudentClient       --> AppServer
-TeacherClient       --> AppServer
 ConsultantClient    --> AppServer
 
 AppServer       --> AIAgentsServer

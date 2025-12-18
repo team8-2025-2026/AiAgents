@@ -252,7 +252,7 @@ WebUI будет доступен на `http://localhost:3000` (или друг�
    - `email`: ваш email
    - `first_name`: ваше имя
    - `last_name`: ваша фамилия
-   - `status`: `STUDENT`, `TEACHER` или `ASSISTENT`
+   - `status`: `STUDENT` или `ASSISTENT`
    - `access_token`: токен из `authapi/.env` (ADMIN_ACCESS_TOKEN)
 4. Нажмите "Execute"
 5. **Сохраните пароль** из ответа API - он понадобится для входа!

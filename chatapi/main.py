@@ -24,9 +24,8 @@ STATUSES = [HUMAN, LLM]
 
 # User.status
 STUDENT = "STUDENT"
-TEACHER = "TEACHER"
 ASSISTENT = "ASSISTENT"
-STATUSES = [STUDENT, TEACHER, ASSISTENT]
+STATUSES = [STUDENT, ASSISTENT]
 
 
 # LLM name and descrption
@@ -331,7 +330,7 @@ def send_message(id: int, text: str, access_token: str):
                                     student_companion.to_json())
                 )
             elif assistent_user is not None and assistent_user.access_token == access_token:
-                # Message sent by assistant or teacher
+                # Message sent by assistant
                 message = Message(text=text,
                                   chat_id=chat.id,
                                   author_type=LLM,
@@ -419,8 +418,8 @@ def read_chats(access_token: str):
             # Студент видит только свои чаты
             statement = select(Chat).where(Chat.student_id == user.id)
             chats = session.exec(statement).all()
-        elif user.status == TEACHER or user.status == ASSISTENT:
-            # Учитель/Ассистент видит чаты, где он является собеседником
+        elif user.status == ASSISTENT:
+            # Ассистент видит чаты, где он является собеседником
             statement = select(Chat).where(Chat.companion_id == user.id)
             chats = session.exec(statement).all()
         else:

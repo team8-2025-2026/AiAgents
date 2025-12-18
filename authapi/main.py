@@ -14,9 +14,8 @@ import re
 
 # User.status
 STUDENT = "STUDENT"
-TEACHER = "TEACHER"
 ASSISTENT = "ASSISTENT"
-STATUSES = [STUDENT, TEACHER, ASSISTENT]
+STATUSES = [STUDENT, ASSISTENT]
 
 
 # Password utils constants
