@@ -314,7 +314,7 @@ def send_message(id: int, text: str, access_token: str):
                     
                     llm_history = []
                     for message in reversed(messages):
-                        if message.author_type == STUDENT and message.author_id == student_user:
+                        if message.author_type == HUMAN and message.author_id == student_user.id:
                             llm_history.append({ "author": "user", "text": message.text })
                         else:
                             llm_history.append({ "author": "assistant", "text": message.text })

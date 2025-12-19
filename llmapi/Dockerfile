@@ -4,7 +4,6 @@ WORKDIR /llmapi
 
 COPY ./requirements.txt /llmapi/requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /llmapi/requirements.txt
-RUN pip install torch torchvision
 
 COPY ./ /llmapi/
 
