@@ -14,6 +14,7 @@ import time
 import os
 import re
 import threading
+import requests
 
 
 # Companion.type
@@ -38,6 +39,9 @@ LLM_DESCRIPION = "Я - учебный бот ассистент, " \
 
 # Message constants
 MAX_MESSAGE_LENGTH = 1024
+
+# LLM API URL
+LLM_API_URL = os.getenv('LLM_API_URL', 'http://localhost:8002')
 
 
 class User(SQLModel, table=True):
@@ -85,6 +89,7 @@ class Chat(SQLModel, table=True):
     companion_type: str         = Field()
     student_id: int             = Field()
     companion_id: Optional[int] = Field(nullable=True)
+    needs_teacher: bool         = Field(default=False)  # Флаг, что нейросеть запросила учителя
 
     def to_json(self, student_data: dict, assistent_companion_data: Optional[dict]) -> dict:
         return {
@@ -92,7 +97,8 @@ class Chat(SQLModel, table=True):
             "student_title": self.student_title,
             "assistent_title": self.assistent_title,
             "student": student_data,
-            "assistent": assistent_companion_data
+            "assistent": assistent_companion_data,
+            "needs_teacher": self.needs_teacher
         }
 
 
@@ -108,6 +114,29 @@ class Message(SQLModel, table=True):
             "text": self.text,
             "chat": chat_data,
             "author": author_companion_data,
+        }
+
+
+class TeacherRequest(SQLModel, table=True):
+    """Заявка на подключение учителя к чату"""
+    id: Optional[int]           = Field(default=None, primary_key=True)
+    chat_id: int                = Field()  # ID чата, где нейросеть запросила учителя
+    student_id: int             = Field()  # ID ученика
+    question_message_id: int     = Field()  # ID сообщения, после которого нейросеть позвала учителя
+    status: str                 = Field(default="PENDING")  # PENDING, ACCEPTED, REJECTED
+    teacher_id: Optional[int]   = Field(default=None, nullable=True)  # ID учителя, который принял заявку
+    created_at: float           = Field(default_factory=time.time)  # Время создания заявки
+
+    def to_json(self, student_data: dict, teacher_data: Optional[dict] = None, question_text: str = "") -> dict:
+        return {
+            "id": self.id,
+            "chat_id": self.chat_id,
+            "student": student_data,
+            "teacher": teacher_data,
+            "question_message_id": self.question_message_id,
+            "question_text": question_text,
+            "status": self.status,
+            "created_at": self.created_at
         }
 
 
@@ -295,18 +324,125 @@ def send_message(id: int, text: str, access_token: str):
                 session.add(message)
                 session.commit()
                 
-                # Если это LLM чат, создаем ответ от бота-заглушки с задержкой
-                if chat.companion_type == LLM:
-                    # Запускаем создание ответа в отдельном потоке с задержкой
+                # Если это LLM чат, создаем ответ от LLM API
+                if chat.companion_type == LLM and not chat.needs_teacher:
+                    # Запускаем создание ответа в отдельном потоке
                     def create_llm_response():
-                        time.sleep(2)  # Задержка 2 секунды для показа анимации "мышления"
-                        with Session(engine) as response_session:
-                            llm_response_text = "Роналду: АГУ АГУ АУГ"
-                            llm_message = Message(text=llm_response_text,
-                                                 chat_id=chat.id,
-                                                 author_id=0)  # 0 означает сообщение от LLM
-                            response_session.add(llm_message)
-                            response_session.commit()
+                        try:
+                            # Получаем историю сообщений для контекста
+                            with Session(engine) as history_session:
+                                history_statement = select(Message).where(Message.chat_id == chat.id).order_by(Message.id)
+                                history_messages = history_session.exec(history_statement).all()
+                                
+                                # Формируем историю для LLM API
+                                llm_history = []
+                                for msg in history_messages:
+                                    if msg.author_id == student_user.id:
+                                        llm_history.append({
+                                            "text": msg.text,
+                                            "author": "user"
+                                        })
+                                    elif msg.author_id == 0:
+                                        llm_history.append({
+                                            "text": msg.text,
+                                            "author": "assistant"
+                                        })
+                                
+                                # Добавляем системный промпт для определения необходимости учителя
+                                system_prompt = """Ты - учебный бот ассистент. Твоя задача - отвечать на вопросы учеников.
+Если вопрос требует экспертного мнения учителя или выходит за рамки твоих знаний, 
+в конце ответа добавь специальный маркер: [NEEDS_TEACHER]
+Обычные вопросы ты должен отвечать сам."""
+                                
+                                # Отправляем запрос в LLM API с системным промптом
+                                llm_history_with_prompt = [
+                                    {"text": system_prompt, "author": "system"}
+                                ] + llm_history
+                                
+                                llm_response = requests.post(
+                                    f"{LLM_API_URL}/ask",
+                                    json=llm_history_with_prompt,
+                                    timeout=60  # Таймаут 60 секунд
+                                )
+                                
+                                if llm_response.status_code == 200:
+                                    response_data = llm_response.json()
+                                    if response_data.get("success") and "data" in response_data:
+                                        llm_response_text = response_data["data"]["text"]
+                                        
+                                        # Проверяем, нужен ли учитель
+                                        needs_teacher_marker = "[NEEDS_TEACHER]"
+                                        needs_teacher = needs_teacher_marker in llm_response_text
+                                        
+                                        if needs_teacher:
+                                            # Убираем маркер из ответа
+                                            llm_response_text = llm_response_text.replace(needs_teacher_marker, "").strip()
+                                            
+                                            # Сохраняем ответ LLM (если он есть)
+                                            with Session(engine) as response_session:
+                                                if llm_response_text:
+                                                    llm_message = Message(text=llm_response_text,
+                                                                         chat_id=chat.id,
+                                                                         author_id=0)
+                                                    response_session.add(llm_message)
+                                                
+                                                # Устанавливаем флаг needs_teacher
+                                                chat_statement = select(Chat).where(Chat.id == chat.id)
+                                                current_chat = response_session.exec(chat_statement).first()
+                                                if current_chat:
+                                                    current_chat.needs_teacher = True
+                                                
+                                                # Создаем заявку на учителя
+                                                teacher_request = TeacherRequest(
+                                                    chat_id=chat.id,
+                                                    student_id=student_user.id,
+                                                    question_message_id=message.id,
+                                                    status="PENDING"
+                                                )
+                                                response_session.add(teacher_request)
+                                                
+                                                # Отправляем сообщение ученику о подключении учителя
+                                                teacher_notification = Message(
+                                                    text="Ваш вопрос передан учителю. Ожидайте ответа.",
+                                                    chat_id=chat.id,
+                                                    author_id=0  # От системы
+                                                )
+                                                response_session.add(teacher_notification)
+                                                
+                                                response_session.commit()
+                                        else:
+                                            # Обычный ответ, сохраняем как обычно
+                                            with Session(engine) as response_session:
+                                                llm_message = Message(text=llm_response_text,
+                                                                     chat_id=chat.id,
+                                                                     author_id=0)  # 0 означает сообщение от LLM
+                                                response_session.add(llm_message)
+                                                response_session.commit()
+                                    else:
+                                        llm_response_text = "Извините, произошла ошибка при генерации ответа."
+                                        with Session(engine) as response_session:
+                                            llm_message = Message(text=llm_response_text,
+                                                                 chat_id=chat.id,
+                                                                 author_id=0)
+                                            response_session.add(llm_message)
+                                            response_session.commit()
+                                else:
+                                    llm_response_text = f"Ошибка LLM API: {llm_response.status_code}"
+                                    with Session(engine) as response_session:
+                                        llm_message = Message(text=llm_response_text,
+                                                             chat_id=chat.id,
+                                                             author_id=0)
+                                        response_session.add(llm_message)
+                                        response_session.commit()
+                        except Exception as e:
+                            print(f"Ошибка при запросе к LLM API: {str(e)}")
+                            llm_response_text = "Извините, произошла ошибка при обращении к LLM API."
+                            with Session(engine) as response_session:
+                                llm_message = Message(text=llm_response_text,
+                                                     chat_id=chat.id,
+                                                     author_id=0)
+                                response_session.add(llm_message)
+                                response_session.commit()
                     
                     # Запускаем в отдельном потоке, чтобы не блокировать ответ
                     thread = threading.Thread(target=create_llm_response)
@@ -419,4 +555,138 @@ def read_chats(access_token: str):
             chats_list.append(chat_data)
         
         return success(chats_list)
+#endregion
+
+#region Teacher Requests
+@app.get("/teacher_requests")
+def get_teacher_requests(access_token: str):
+    """Получить список заявок на подключение учителя"""
+    with Session(engine) as session:
+        statement = select(User).where(User.access_token == access_token)
+        user = session.exec(statement).first()
+        
+        if user is None:
+            return error("Пользователь не найден")
+        
+        if user.status != TEACHER and user.status != ASSISTENT:
+            return error("Только учитель или ассистент могут просматривать заявки")
+        
+        # Получаем все заявки со статусом PENDING
+        statement = select(TeacherRequest).where(TeacherRequest.status == "PENDING").order_by(TeacherRequest.created_at.desc())
+        requests = session.exec(statement).all()
+        
+        requests_list = []
+        for req in requests:
+            # Получаем данные ученика
+            student_statement = select(User).where(User.id == req.student_id)
+            student = session.exec(student_statement).first()
+            
+            # Получаем текст вопроса
+            question_statement = select(Message).where(Message.id == req.question_message_id)
+            question_message = session.exec(question_statement).first()
+            question_text = question_message.text if question_message else ""
+            
+            requests_list.append(req.to_json(
+                student.to_json() if student else {},
+                None,
+                question_text
+            ))
+        
+        return success(requests_list)
+
+
+@app.post("/teacher_requests/{request_id}/accept")
+def accept_teacher_request(request_id: int, access_token: str):
+    """Принять заявку на подключение учителя и создать новый чат"""
+    with Session(engine) as session:
+        # Проверяем пользователя
+        statement = select(User).where(User.access_token == access_token)
+        teacher = session.exec(statement).first()
+        
+        if teacher is None:
+            return error("Пользователь не найден")
+        
+        if teacher.status != TEACHER and teacher.status != ASSISTENT:
+            return error("Только учитель или ассистент могут принимать заявки")
+        
+        # Получаем заявку
+        statement = select(TeacherRequest).where(TeacherRequest.id == request_id)
+        request = session.exec(statement).first()
+        
+        if request is None:
+            return error("Заявка не найдена")
+        
+        if request.status != "PENDING":
+            return error("Заявка уже обработана")
+        
+        # Получаем исходный чат
+        statement = select(Chat).where(Chat.id == request.chat_id)
+        original_chat = session.exec(statement).first()
+        
+        if original_chat is None:
+            return error("Исходный чат не найден")
+        
+        # Получаем данные ученика
+        statement = select(User).where(User.id == request.student_id)
+        student = session.exec(statement).first()
+        
+        if student is None:
+            return error("Ученик не найден")
+        
+        # Создаем новый чат с учителем
+        new_chat = Chat(
+            student_title=f"Чат с учителем (из чата #{original_chat.id})",
+            assistent_title=f"Чат с {student.first_name} {student.last_name}",
+            companion_type=HUMAN,
+            companion_id=teacher.id,
+            student_id=student.id,
+            needs_teacher=False
+        )
+        session.add(new_chat)
+        session.commit()
+        session.refresh(new_chat)
+        
+        # Копируем историю сообщений до момента вызова учителя
+        statement = select(Message).where(
+            Message.chat_id == original_chat.id,
+            Message.id <= request.question_message_id
+        ).order_by(Message.id)
+        original_messages = session.exec(statement).all()
+        
+        for orig_msg in original_messages:
+            # Определяем автора сообщения
+            if orig_msg.author_id == student.id:
+                new_author_id = student.id
+            elif orig_msg.author_id == 0:
+                new_author_id = 0  # LLM сообщения
+            else:
+                new_author_id = orig_msg.author_id
+            
+            new_message = Message(
+                text=orig_msg.text,
+                chat_id=new_chat.id,
+                author_id=new_author_id
+            )
+            session.add(new_message)
+        
+        # Добавляем системное сообщение о том, что учитель подключился
+        system_message = Message(
+            text=f"Учитель {teacher.first_name} {teacher.last_name} подключился к чату.",
+            chat_id=new_chat.id,
+            author_id=0  # От системы
+        )
+        session.add(system_message)
+        
+        # Обновляем статус заявки
+        request.status = "ACCEPTED"
+        request.teacher_id = teacher.id
+        session.add(request)
+        
+        session.commit()
+        
+        # Формируем ответ
+        student_companion = ChatCompanion(HUMAN, student)
+        teacher_companion = ChatCompanion(HUMAN, teacher)
+        
+        return success(new_chat.to_json(student.to_json(), teacher_companion.to_json()))
 #endregion
