@@ -10,6 +10,7 @@ import string
 import time
 import os
 import re
+import random
 
 
 # User.status
@@ -310,4 +311,14 @@ def delete_user(email: str,
         session.commit()
 
         return success(user.to_json())
+
+
+@app.get("/assistent/available")
+def read_available_assistent():
+    with Session(engine) as session:
+        statement = select(User).where(User.status == ASSISTENT)
+        assistents = session.exec(statement).all()
+        assistent = random.choice(assistents)
+        
+        return success(assistent.to_json())
 #endregion

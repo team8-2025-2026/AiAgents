@@ -24,6 +24,7 @@ services:
     environment:
       - LLM_CHAT_TOKEN=${LLM_CHAT_TOKEN}
       - CONNECTION_STRING=${CONNECTION_STRING}
+      - AUTH_API=${AUTH_API}
       - LLM_API=${LLM_API}
     volumes:
       - ./database.db:/chatapi/database.db

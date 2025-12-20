@@ -14,6 +14,7 @@ import os
 import re
 import threading
 import requests
+import json
 
 
 # Companion.type
@@ -44,6 +45,7 @@ HISTORY_SIZE = 10
 CONNECTION_STRING = os.getenv('CONNECTION_STRING')
 LLM_CHAT_TOKEN = os.getenv('LLM_CHAT_TOKEN')
 LLM_API = os.getenv('LLM_API')
+AUTH_API = os.getenv('AUTH_API')
 
 
 class User(SQLModel, table=True):
@@ -447,4 +449,64 @@ def read_chats(access_token: str):
             chats_list.append(chat_data)
         
         return success(chats_list)
+
+@app.post("/chat/switch_companion")
+def switch_companion(id: int, access_token: str):
+    with Session(engine) as session:
+        statement = select(Chat).where(Chat.id == id)
+        chat = session.exec(statement).first()
+
+        if chat is None:
+            return error("Чат не найден")
+        else:
+            statement = select(User).where(User.id == chat.student_id)
+            student_user = session.exec(statement).first()
+            if chat.companion_type == HUMAN:
+                statement = select(User).where(User.id == chat.companion_id)
+                assistent_user = session.exec(statement).first()
+            else:
+                assistent_user = None
+            student_companion = ChatCompanion(HUMAN, student_user)
+            assistent_companion = ChatCompanion(chat.companion_type, assistent_user)
+            
+            if student_user is not None and student_user.access_token == access_token:
+                if chat.companion_type == HUMAN:
+                    chat.companion_type = LLM
+                    chat.companion_id = None
+
+                    session.add(chat)
+                    session.commit()
+                    session.refresh(chat)
+
+                    assistent_user = None
+                    assistent_companion = ChatCompanion(chat.companion_type, assistent_user)
+
+                    return success( chat.to_json(student_user.to_json(), assistent_companion.to_json()) )
+                else:
+                    response = requests.get(f"{AUTH_API}/assistent/available")
+
+                    if response.status_code != 200:
+                        return error("Внутренняя ошибка сервера")
+                    
+                    data = json.loads(response.text)
+
+                    if not data['success']:
+                        return error(f"Внутренняя ошибка сервера: " + data['error'])
+                    
+                    chat.companion_type = HUMAN
+                    chat.companion_id = data['data']['id']
+
+                    session.add(chat)
+                    session.commit()
+                    session.refresh(chat)
+
+                    statement = select(User).where(User.id == data['data']['id'])
+                    assistent_user = session.exec(statement).first()
+                    assistent_companion = ChatCompanion(chat.companion_type, assistent_user)
+                    
+                    return success( chat.to_json(student_user.to_json(), assistent_companion.to_json()) )
+            elif assistent_user is not None and assistent_user.access_token == access_token:
+                return error("Менять собеседника может только студент")
+            else:
+                return error("Чат не найден")
 #endregion
