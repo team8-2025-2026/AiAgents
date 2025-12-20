@@ -151,7 +151,7 @@ def process_answer(chat_id: int, history: List[AskRequestHistoryItem]):
         else:
             # Формируем историю сообщений для GigaChat
             messages = []
-            
+
             # Добавляем предыдущие сообщения из истории для контекста
             # Ограничиваем историю последними 6 сообщениями для оптимизации скорости
             recent_history = history[-6:] if len(history) > 6 else history
@@ -170,7 +170,7 @@ def process_answer(chat_id: int, history: List[AskRequestHistoryItem]):
                         "role": "assistant",
                         "content": item.text
                     })
-            
+
             # Оборачиваем последнее сообщение пользователя в промпт с контекстом образовательной платформы
             full_query = f"{EDUCATIONAL_PLATFORM_PROMPT} {last_user_message}"
             
@@ -270,9 +270,9 @@ def process_answer(chat_id: int, history: List[AskRequestHistoryItem]):
             chat_response = requests.post(
                 f"{CHAT_API}/chat/send_message",
                 params={
-                    "id": chat_id,
-                    "text": response,
-                    "access_token": LLM_CHAT_TOKEN
+            "id": chat_id,
+            "text": response,
+            "access_token": LLM_CHAT_TOKEN
                 }
             )
 
