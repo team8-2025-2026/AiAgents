@@ -194,4 +194,23 @@ export const chatAPI = {
       throw error;
     }
   },
+
+  // Сменить собеседника LLM -> ASSISTENT or ASSISTENT -> LLM
+  switchCompanion: async (chatId) => {
+    try {
+      // Новый API: POST /chat/send_message?id=...&text=...&access_token=...
+      const response = await apiRequest(`/chat/switch_companion?id=${chatId}`, {
+        method: 'POST',
+      });
+      
+      if (response.success && response.data) {
+        return response.data;
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Error loading chat:', error);
+      throw error;
+    }
+  },
 };

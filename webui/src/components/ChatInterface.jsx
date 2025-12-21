@@ -9,6 +9,14 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
   const [chatNotFound, setChatNotFound] = useState(false);
   const messagesEndRef = useRef(null);
   const checkIntervalRef = useRef(null);
+  const actions = [
+    {
+      "title": "Сменить собеседника",
+      "effect": async () => {
+        const newChatData = await chatAPI.switchCompanion(chatId)
+      }
+    }
+  ];
 
   useEffect(() => {
     if (!chatId) {
@@ -244,30 +252,41 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
           )}
           <div ref={messagesEndRef} />
         </div>
-        <form onSubmit={handleSend} className="chat-input-form">
-          <div className="chat-input-container">
-            <textarea
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend(e);
-                }
-              }}
-              placeholder="Введите сообщение..."
-              rows={1}
-              className="chat-input"
-            />
-            <button
-              type="submit"
-              disabled={!inputValue.trim() || loading}
-              className="send-button"
-            >
-              Отправить
-            </button>
+        <div className="chat-bottom-side">
+          <div className="chat-btn-actions">
+            {
+              actions.map((action) => (
+                <div className="btn-action-box" onClick={action.effect}>
+                  <div className="btn-action-content">{action.title}</div>
+                </div>
+              ))
+            }
           </div>
-        </form>
+          <form onSubmit={handleSend} className="chat-input-form">
+            <div className="chat-input-container">
+              <textarea
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend(e);
+                  }
+                }}
+                placeholder="Введите сообщение..."
+                rows={1}
+                className="chat-input"
+              />
+              <button
+                type="submit"
+                disabled={!inputValue.trim() || loading}
+                className="send-button"
+              >
+                Отправить
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     );
   } catch (error) {
