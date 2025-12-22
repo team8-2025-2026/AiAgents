@@ -195,22 +195,43 @@ export const chatAPI = {
     }
   },
 
-  // Сменить собеседника LLM -> ASSISTENT or ASSISTENT -> LLM
-  switchCompanion: async (chatId) => {
-    try {
-      // Новый API: POST /chat/send_message?id=...&text=...&access_token=...
-      const response = await apiRequest(`/chat/switch_companion?id=${chatId}`, {
-        method: 'POST',
-      });
-      
-      if (response.success && response.data) {
-        return response.data;
+  actions: {
+    // Сменить собеседника LLM -> ASSISTENT
+    callAssistant: async (chatId) => {
+      try {
+        // Новый API: POST /chat/send_message?id=...&text=...&access_token=...
+        const response = await apiRequest(`/chat/actions/llm/call_assistant?id=${chatId}`, {
+          method: 'POST',
+        });
+        
+        if (response.success && response.data) {
+          return response.data;
+        }
+        
+        return response;
+      } catch (error) {
+        console.error('Error loading chat:', error);
+        throw error;
       }
-      
-      return response;
-    } catch (error) {
-      console.error('Error loading chat:', error);
-      throw error;
-    }
+    },
+
+    // Сменить собеседника ASSISTENT -> LLM
+    callLLM: async (chatId) => {
+      try {
+        // Новый API: POST /chat/send_message?id=...&text=...&access_token=...
+        const response = await apiRequest(`/chat/actions/llm/call_llm?id=${chatId}`, {
+          method: 'POST',
+        });
+        
+        if (response.success && response.data) {
+          return response.data;
+        }
+        
+        return response;
+      } catch (error) {
+        console.error('Error loading chat:', error);
+        throw error;
+      }
+    },
   },
 };

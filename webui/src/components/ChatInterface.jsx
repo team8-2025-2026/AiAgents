@@ -4,19 +4,13 @@ import '../styles/ChatInterface.css';
 
 function ChatInterface({ chatId, user, chats, onChatNotFound }) {
   const [messages, setMessages] = useState([]);
+  const [chatData, setChatData] = useState(null);
+  const [actions, setActions] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [chatNotFound, setChatNotFound] = useState(false);
   const messagesEndRef = useRef(null);
   const checkIntervalRef = useRef(null);
-  const actions = [
-    {
-      "title": "Сменить собеседника",
-      "effect": async () => {
-        const newChatData = await chatAPI.switchCompanion(chatId)
-      }
-    }
-  ];
 
   useEffect(() => {
     if (!chatId) {
@@ -42,6 +36,13 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
       if (!chatExists) {
         setChatNotFound(true);
         return;
+      } else {
+        const foundChat = chats.find(chat => {
+          const chatIdNum = typeof chat.id === 'number' ? chat.id : parseInt(chat.id);
+          const selectedIdNum = typeof chatId === 'number' ? chatId : parseInt(chatId);
+          return chatIdNum === selectedIdNum || chat.id === String(chatId) || String(chat.id) === String(chatId);
+        });
+        setChatData(foundChat);
       }
     }
     setChatNotFound(false);
@@ -57,6 +58,23 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
       setLoading(false);
     };
   }, [chatId, chats]);
+
+  useEffect(() => {
+    newActions = [];
+    if (chatData.chat_companion == "LLM") {
+      newActions.push([
+        {
+          "title": "Позвать ассистента",
+          "effect": async () => {
+            const newChatData = await chatAPI.actions.callAssistant(chatId);
+            setChatData(newChatData);
+          }
+        }
+      ]);
+    }
+
+    setActions(newActions)
+  }, [chatData]);
 
   useEffect(() => {
     scrollToBottom();

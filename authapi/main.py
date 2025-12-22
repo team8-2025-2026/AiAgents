@@ -313,12 +313,12 @@ def delete_user(email: str,
         return success(user.to_json())
 
 
-@app.get("/assistent/available")
-def read_available_assistent():
+@app.get("/assistant/available")
+def read_available_assistant():
     with Session(engine) as session:
         statement = select(User).where(User.status == ASSISTENT)
-        assistents = session.exec(statement).all()
-        assistent = random.choice(assistents)
+        assistants = session.exec(statement).all()
+        assistant = random.choice(assistants)
         
-        return success(assistent.to_json())
+        return success(assistant.to_json())
 #endregion
