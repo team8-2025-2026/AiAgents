@@ -38,18 +38,12 @@ services:
     restart: always
     environment:
       - LLM_CHAT_TOKEN=${LLM_CHAT_TOKEN}
-      - MODEL_PATH=${MODEL_PATH}
-      - CHECK_CUDA=${CHECK_CUDA}
+      - GIGACHAT_CREDENTIALS=${GIGACHAT_CREDENTIALS}
+      - GIGACHAT_AUTH_TOKEN=${GIGACHAT_AUTH_TOKEN}
+      - GIGACHAT_SCOPE=${GIGACHAT_SCOPE:-GIGACHAT_API_PERS}
       - CHAT_API=${CHAT_API}
     volumes:
       - ./database.db:/llmapi/database.db
-    deploy: # Comment this section if you are using non-nvidia gpu
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
   webui:
     env_file: ".env"
     build: webui/

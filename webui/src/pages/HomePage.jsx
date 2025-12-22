@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { authUtils } from '../utils/auth';
 import { chatAPI } from '../api/chat';
@@ -14,6 +14,48 @@ function HomePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const user = authUtils.getUser();
+  const chatsUpdateIntervalRef = useRef(null);
+  const filtersDebounceRef = useRef(null);
+  const lastChatsHashRef = useRef(null);
+
+  // Функция для вычисления хеша списка чатов (для оптимизации обновлений)
+  const getChatsHash = useCallback((chatsList) => {
+    return chatsList.map(c => `${c.id}:${c.title}`).join('|');
+  }, []);
+
+  const loadChats = useCallback(async () => {
+    try {
+      const loadedChats = await chatAPI.getChats();
+      // Преобразуем формат данных под наш UI
+      const formattedChats = loadedChats.map(chat => ({
+        id: chat.id,
+        title: chat.title || chat.student_title || chat.assistent_title || 'Без названия',
+        student_id: chat.student?.id || null,
+        status: 'open', // Новый API не возвращает status, используем дефолт
+        last_message: '',
+      }));
+      
+      // Проверяем, действительно ли список изменился
+      const newHash = getChatsHash(formattedChats);
+      if (lastChatsHashRef.current !== newHash) {
+        lastChatsHashRef.current = newHash;
+        setChats(prevChats => {
+          // Дополнительная проверка: обновляем только если действительно есть изменения
+          const prevHash = getChatsHash(prevChats);
+          if (prevHash !== newHash) {
+            return formattedChats;
+          }
+          return prevChats;
+        });
+      }
+      
+      return formattedChats;
+    } catch (error) {
+      console.error('Failed to load chats:', error);
+      // Не обновляем состояние при ошибке, чтобы не вызывать мерцание
+      return [];
+    }
+  }, [getChatsHash]);
 
   useEffect(() => {
     if (!user) {
@@ -29,34 +71,40 @@ function HomePage() {
     if (chatId) {
       setSelectedChatId(chatId);
     }
-  }, [user, navigate, searchParams]);
 
-  // Перезагружаем чаты при изменении фильтров (для учителей)
+    // Для учителей: периодическое обновление списка чатов (чтобы видеть новые эскалированные чаты)
+    if (user.status === 'TEACHER') {
+      chatsUpdateIntervalRef.current = setInterval(() => {
+        loadChats();
+      }, 10000); // Обновляем каждые 10 секунд (уменьшено для предотвращения мерцания)
+    }
+
+    return () => {
+      if (chatsUpdateIntervalRef.current) {
+        clearInterval(chatsUpdateIntervalRef.current);
+        chatsUpdateIntervalRef.current = null;
+      }
+      if (filtersDebounceRef.current) {
+        clearTimeout(filtersDebounceRef.current);
+        filtersDebounceRef.current = null;
+      }
+    };
+  }, [user, navigate, searchParams, loadChats]);
+
+  // Дебаунсинг для фильтров (для учителей)
   useEffect(() => {
     if (user && user.status === 'TEACHER') {
-      loadChats();
+      // Очищаем предыдущий таймер
+      if (filtersDebounceRef.current) {
+        clearTimeout(filtersDebounceRef.current);
+      }
+      
+      // Устанавливаем новый таймер с задержкой 500ms
+      filtersDebounceRef.current = setTimeout(() => {
+        loadChats();
+      }, 500);
     }
-  }, [filters, user]);
-
-  const loadChats = useCallback(async () => {
-    try {
-      const loadedChats = await chatAPI.getChats();
-      // Преобразуем формат данных под наш UI
-      const formattedChats = loadedChats.map(chat => ({
-        id: chat.id,
-        title: chat.title || chat.student_title || chat.assistent_title || 'Без названия',
-        student_id: chat.student?.id || null,
-        status: 'open', // Новый API не возвращает status, используем дефолт
-        last_message: '',
-      }));
-      setChats(formattedChats);
-      return formattedChats;
-    } catch (error) {
-      console.error('Failed to load chats:', error);
-      setChats([]);
-      return [];
-    }
-  }, []);
+  }, [filters, user, loadChats]);
 
   const handleChatSelect = (chatId) => {
     setSelectedChatId(chatId);

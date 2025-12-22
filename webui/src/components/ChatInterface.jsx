@@ -10,6 +10,7 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
   const [loading, setLoading] = useState(false);
   const [chatNotFound, setChatNotFound] = useState(false);
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const checkIntervalRef = useRef(null);
 
   useEffect(() => {
@@ -47,8 +48,8 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
     }
     setChatNotFound(false);
     loadMessages();
-    // Устанавливаем интервал для обновления сообщений каждые 5 секунд
-    const interval = setInterval(loadMessages, 5000);
+    // Устанавливаем интервал для обновления сообщений каждые 3 секунды (оптимизировано)
+    const interval = setInterval(loadMessages, 3000);
     return () => {
       clearInterval(interval);
       if (checkIntervalRef.current) {
@@ -189,7 +190,7 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
           return false; // Ответ еще не получен
         };
         
-        // Проверяем ответ каждую секунду, максимум 8 раз (всего до 10 секунд)
+        // Проверяем ответ каждые 1.5 секунды, максимум 15 раз (всего до ~25 секунд для медленных ответов)
         let attempts = 0;
         checkIntervalRef.current = setInterval(async () => {
           if (responseReceived) {
@@ -205,8 +206,8 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
           attempts++;
           const received = await checkForResponse();
           
-          // Останавливаем проверку если получили ответ или прошло 8 секунд
-          if (received || attempts >= 8) {
+          // Останавливаем проверку если получили ответ или прошло 15 попыток
+          if (received || attempts >= 15) {
             if (checkIntervalRef.current) {
               clearInterval(checkIntervalRef.current);
               checkIntervalRef.current = null;
@@ -214,7 +215,7 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
             setLoading(false);
             responseReceived = true;
           }
-        }, 1000);
+        }, 1500); // Проверяем каждые 1.5 секунды
       }, 2000); // Начинаем проверку через 2 секунды
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -244,7 +245,10 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
   try {
     return (
       <div className="chat-interface">
-        <div className="chat-messages">
+        <div 
+          className="chat-messages" 
+          ref={messagesContainerRef}
+        >
           {messages.length === 0 ? (
             <div className="empty-chat">
               <p>Начните диалог, отправив сообщение</p>

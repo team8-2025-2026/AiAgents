@@ -39,6 +39,7 @@ LLM_DESCRIPION = "Я - учебный бот ассистент, " \
 # Message constants
 MAX_MESSAGE_LENGTH = 1024
 HISTORY_SIZE = 10
+ESCALATION_THRESHOLD = 3  # Количество запросов к LLM перед эскалацией к учителю
 
 
 # Environment variables
@@ -151,6 +152,68 @@ def success(data: dict) -> dict:
         "success": True,
         "data": data
     }
+#endregion
+
+
+#region Escalation utils
+def count_llm_requests(session: Session, chat_id: int) -> int:
+    """Подсчитывает количество запросов к LLM в чате (сообщения от LLM)"""
+    statement = select(Message).where(
+        Message.chat_id == chat_id,
+        Message.author_id == None  # Сообщения от LLM имеют author_id == None
+    )
+    messages = session.exec(statement).all()
+    return len(messages)
+
+
+def escalate_chat_to_teacher(session: Session, chat: Chat) -> Optional[User]:
+    """Эскалирует чат к учителю. Возвращает назначенного учителя или None"""
+    # Находим первого доступного учителя
+    statement = select(User).where(User.status == TEACHER)
+    teachers = session.exec(statement).all()
+    
+    if not teachers:
+        print("[WARNING] Не найдено учителей для эскалации чата")
+        return None
+    
+    # Выбираем первого учителя (можно улучшить логику выбора)
+    teacher = teachers[0]
+    
+    # Обновляем чат: меняем companion_type на HUMAN и назначаем учителя
+    chat.companion_type = HUMAN
+    chat.companion_id = teacher.id
+    chat.assistent_title = f"Чат с {teacher.first_name} {teacher.last_name}"
+    
+    session.add(chat)
+    session.commit()
+    
+    print(f"[INFO] Чат {chat.id} эскалирован к учителю {teacher.email}")
+    return teacher
+
+
+def check_and_escalate_chat(session: Session, chat: Chat) -> bool:
+    """Проверяет количество запросов к LLM и эскалирует чат при необходимости"""
+    if chat.companion_type != LLM:
+        return False  # Чат уже не с LLM, эскалация не нужна
+    
+    llm_requests_count = count_llm_requests(session, chat.id)
+    
+    if llm_requests_count >= ESCALATION_THRESHOLD:
+        teacher = escalate_chat_to_teacher(session, chat)
+        if teacher:
+            # Отправляем уведомление учителю в чат
+            notification_message = Message(
+                text=f"Чат эскалирован к учителю {teacher.first_name} {teacher.last_name}. "
+                     f"Ученик задал {llm_requests_count} вопросов, требуется помощь преподавателя.",
+                chat_id=chat.id,
+                author_type=HUMAN,
+                author_id=None  # Системное сообщение
+            )
+            session.add(notification_message)
+            session.commit()
+            return True
+    
+    return False
 #endregion
 
 #region CRUD
@@ -315,7 +378,7 @@ def send_message(id: int, text: str, access_token: str):
                     
                     llm_history = []
                     for message in reversed(messages):
-                        if message.author_type == STUDENT and message.author_id == student_user:
+                        if message.author_type == HUMAN and message.author_id == student_user.id:
                             llm_history.append({ "author": "user", "text": message.text })
                         else:
                             llm_history.append({ "author": "assistant", "text": message.text })
@@ -355,7 +418,20 @@ def send_message(id: int, text: str, access_token: str):
                 
                 session.add(message)
                 session.commit()
-
+                
+                # Проверяем необходимость эскалации после получения ответа от LLM
+                # Обновляем чат из БД для актуальных данных
+                session.refresh(chat)
+                escalated = check_and_escalate_chat(session, chat)
+                
+                if escalated:
+                    # Обновляем данные чата после эскалации
+                    session.refresh(chat)
+                    if chat.companion_type == HUMAN:
+                        statement = select(User).where(User.id == chat.companion_id)
+                        assistent_user = session.exec(statement).first()
+                        assistent_companion = ChatCompanion(HUMAN, assistent_user)
+                
                 return success(
                     message.to_json(chat.to_json(student_user.to_json(), 
                                                  assistent_companion.to_json()),

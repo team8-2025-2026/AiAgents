@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import '../styles/ChatList.css';
 
 function ChatList({
@@ -33,14 +33,17 @@ function ChatList({
     setEditTitle('');
   };
 
-  // Фильтрация чатов для учителя
-  const filteredChats = userStatus === 'TEACHER' && filters
-    ? chats.filter(chat => {
+  // Оптимизированная фильтрация чатов с useMemo
+  const filteredChats = useMemo(() => {
+    if (userStatus === 'TEACHER' && filters) {
+      return chats.filter(chat => {
         if (filters.studentId && chat.student_id !== filters.studentId) return false;
         if (filters.status && chat.status !== filters.status) return false;
         return true;
-      })
-    : chats;
+      });
+    }
+    return chats;
+  }, [chats, userStatus, filters]);
 
   return (
     <div className="chat-list">
