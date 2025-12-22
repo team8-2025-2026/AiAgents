@@ -3,3 +3,4 @@
 * [Диаграмма компонентов](./plantuml/component.plantuml)
 * [Диаграмма развертывания](./plantuml/deployment.plantuml)
 * [Диаграмма активности](./activity.md)
+* [Диаграммы последовательностей](./sequence.md)
