@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { chatAPI } from '../api/chat';
 import '../styles/ChatInterface.css';
+import { use } from 'react';
 
 function ChatInterface({ chatId, user, chats, onChatNotFound }) {
   const [messages, setMessages] = useState([]);
@@ -37,19 +38,12 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
       if (!chatExists) {
         setChatNotFound(true);
         return;
-      } else {
-        const foundChat = chats.find(chat => {
-          const chatIdNum = typeof chat.id === 'number' ? chat.id : parseInt(chat.id);
-          const selectedIdNum = typeof chatId === 'number' ? chatId : parseInt(chatId);
-          return chatIdNum === selectedIdNum || chat.id === String(chatId) || String(chat.id) === String(chatId);
-        });
-        setChatData(foundChat);
       }
     }
     setChatNotFound(false);
-    loadMessages();
+    updateLoop();
     // Устанавливаем интервал для обновления сообщений каждые 3 секунды (оптимизировано)
-    const interval = setInterval(loadMessages, 3000);
+    const interval = setInterval(updateLoop, 3000);
     return () => {
       clearInterval(interval);
       if (checkIntervalRef.current) {
@@ -61,31 +55,49 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
   }, [chatId, chats]);
 
   useEffect(() => {
-    newActions = [];
-    if (chatData.chat_companion == "LLM") {
-      newActions.push([
-        {
-          "title": "Позвать ассистента",
-          "effect": async () => {
-            const newChatData = await chatAPI.actions.callAssistant(chatId);
-            setChatData(newChatData);
-          }
-        }
-      ]);
-    }
-
-    setActions(newActions)
-  }, [chatData]);
-
-  useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messagesEndRef]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const loadMessages = useCallback(async () => {
+  const updateLoop = async () => {
+    await updateChatData();
+    await loadMessages();
+  };
+
+  const updateChatData = async () => {
+    if (!chatId) return;
+    
+    try {
+      const loadedChatData = await chatAPI.getChat(chatId);
+      setChatData(loadedChatData);
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+      setChatData(null);
+      return;
+    }
+
+    var newActions = [];
+    console.log(chatData);
+    if (chatData != null && chatData.assistent.type == "LLM") {
+      newActions.push(
+        {
+          "key": "CallAssistantKeyProp",
+          "title": "Позвать ассистента",
+          "effect": async () => {
+            const newChatData = await chatAPI.actions.callAssistant(chatId);
+            setChatData(newChatData);
+          },
+        }
+      );
+    }
+
+    setActions(newActions)
+  };
+
+  const loadMessages = async () => {
     if (!chatId) return;
     
     try {
@@ -112,7 +124,7 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
       // В случае ошибки оставляем пустой массив для нового чата
       setMessages([]);
     }
-  }, [chatId, loading]);
+  };
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -278,7 +290,7 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
           <div className="chat-btn-actions">
             {
               actions.map((action) => (
-                <div className="btn-action-box" onClick={action.effect}>
+                <div className="btn-action-box" onClick={action.effect} key={action.key}>
                   <div className="btn-action-content">{action.title}</div>
                 </div>
               ))

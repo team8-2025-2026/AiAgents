@@ -200,7 +200,7 @@ export const chatAPI = {
     callAssistant: async (chatId) => {
       try {
         // Новый API: POST /chat/send_message?id=...&text=...&access_token=...
-        const response = await apiRequest(`/chat/actions/llm/call_assistant?id=${chatId}`, {
+        const response = await apiRequest(`/chat/actions/student/call_assistant?id=${chatId}`, {
           method: 'POST',
         });
         
@@ -219,7 +219,7 @@ export const chatAPI = {
     callLLM: async (chatId) => {
       try {
         // Новый API: POST /chat/send_message?id=...&text=...&access_token=...
-        const response = await apiRequest(`/chat/actions/llm/call_llm?id=${chatId}`, {
+        const response = await apiRequest(`/chat/actions/student/call_llm?id=${chatId}`, {
           method: 'POST',
         });
         
