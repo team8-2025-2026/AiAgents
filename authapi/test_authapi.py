@@ -2,9 +2,9 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
-from main import app, get_session
-from main import STUDENT, ASSISTENT
-from main import ADMIN_ACCESS_TOKEN
+from .main import app, get_session
+from .main import STUDENT, ASSISTENT
+from .main import ADMIN_ACCESS_TOKEN
 
 
 client = TestClient(app)
