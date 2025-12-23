@@ -72,15 +72,17 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
     
     try {
       const loadedChatData = await chatAPI.getChat(chatId);
+      updateActions(loadedChatData);
       setChatData(loadedChatData);
     } catch (error) {
       console.error('Failed to load messages:', error);
       setChatData(null);
       return;
     }
+  };
 
+  const updateActions = (chatData) => {
     var newActions = [];
-    console.log(chatData);
     if (chatData != null && chatData.assistent.type == "LLM") {
       newActions.push(
         {
@@ -88,6 +90,7 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
           "title": "Позвать ассистента",
           "effect": async () => {
             const newChatData = await chatAPI.actions.callAssistant(chatId);
+            updateActions(newChatData);
             setChatData(newChatData);
           },
         }
@@ -95,7 +98,7 @@ function ChatInterface({ chatId, user, chats, onChatNotFound }) {
     }
 
     setActions(newActions)
-  };
+  }
 
   const loadMessages = async () => {
     if (!chatId) return;
