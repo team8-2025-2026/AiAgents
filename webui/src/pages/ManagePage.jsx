@@ -83,7 +83,6 @@ function ManagePage() {
   const getStatusLabel = (status) => {
     const labels = {
       STUDENT: 'Студент',
-      TEACHER: 'Учитель',
       ASSISTENT: 'Поддержка',
     };
     return labels[status] || status;
@@ -122,7 +121,6 @@ function ManagePage() {
                   required
                 >
                   <option value="STUDENT">Студент</option>
-                  <option value="TEACHER">Учитель</option>
                   <option value="ASSISTENT">Поддержка</option>
                 </select>
               </div>

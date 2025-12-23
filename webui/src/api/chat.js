@@ -194,4 +194,44 @@ export const chatAPI = {
       throw error;
     }
   },
+
+  actions: {
+    // Сменить собеседника LLM -> ASSISTENT
+    callAssistant: async (chatId) => {
+      try {
+        // Новый API: POST /chat/send_message?id=...&text=...&access_token=...
+        const response = await apiRequest(`/chat/actions/student/call_assistant?id=${chatId}`, {
+          method: 'POST',
+        });
+        
+        if (response.success && response.data) {
+          return response.data;
+        }
+        
+        return response;
+      } catch (error) {
+        console.error('Error loading chat:', error);
+        throw error;
+      }
+    },
+
+    // Сменить собеседника ASSISTENT -> LLM
+    callLLM: async (chatId) => {
+      try {
+        // Новый API: POST /chat/send_message?id=...&text=...&access_token=...
+        const response = await apiRequest(`/chat/actions/student/call_llm?id=${chatId}`, {
+          method: 'POST',
+        });
+        
+        if (response.success && response.data) {
+          return response.data;
+        }
+        
+        return response;
+      } catch (error) {
+        console.error('Error loading chat:', error);
+        throw error;
+      }
+    },
+  },
 };

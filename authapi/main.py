@@ -10,13 +10,13 @@ import string
 import time
 import os
 import re
+import random
 
 
 # User.status
 STUDENT = "STUDENT"
-TEACHER = "TEACHER"
 ASSISTENT = "ASSISTENT"
-STATUSES = [STUDENT, TEACHER, ASSISTENT]
+STATUSES = [STUDENT, ASSISTENT]
 
 
 # Password utils constants
@@ -311,4 +311,14 @@ def delete_user(email: str,
         session.commit()
 
         return success(user.to_json())
+
+
+@app.get("/assistant/available")
+def read_available_assistant():
+    with Session(engine) as session:
+        statement = select(User).where(User.status == ASSISTENT)
+        assistants = session.exec(statement).all()
+        assistant = random.choice(assistants)
+        
+        return success(assistant.to_json())
 #endregion

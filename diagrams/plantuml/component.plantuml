@@ -3,11 +3,9 @@ skinparam componentStyle rectangle
 
 actor Student
 actor Consultant
-actor Teacher
 
 package "Frontend" {
   [Student UI] as StudentUI
-  [Teacher UI] as TeacherUI
   [Consultant UI] as ConsultantUI
 }
 
@@ -30,7 +28,6 @@ database DB
 
 ' UI dependencies
 StudentUI       --> ChatAPI
-TeacherUI       --> ChatAPI
 ConsultantUI    --> ChatAPI
 
 ' API dependencies
@@ -47,6 +44,5 @@ AIAgentsAPI     --> ChatCompanionRecommender
 
 ' Actors dependencies
 Student --> StudentUI
-Teacher --> TeacherUI
 Consultant --> ConsultantUI
 @enduml

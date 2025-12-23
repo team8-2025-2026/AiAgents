@@ -16,6 +16,35 @@
   gap: 1.5rem;
 }
 
+.chat-btn-actions {
+  flex: 1;
+  overflow-x: auto;
+  padding: 0.5rem 1.5rem;
+  display: flex;
+  flex-direction: row;
+  gap: 1.5rem;
+}
+
+.btn-action-box {
+  display: flex;
+  flex-direction: row;
+  max-height: 80%;
+  border-color: #10a37f;
+  border-width: 3px;
+  border-style: solid;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.btn-action-box:hover {
+  border-color: #13e0ad;
+}
+
+.btn-action-content {
+  padding: 1rem 1.25rem;
+  color: white;
+}
+
 .empty-chat {
   display: flex;
   justify-content: center;
