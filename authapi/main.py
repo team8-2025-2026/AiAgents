@@ -266,7 +266,7 @@ def update_user(email: str,
             else:
                 pass
         else:
-                return error("Недостаточно прав")
+            return error("Недостаточно прав")
     
     # Update data
     statement = select(User).where(User.email == email)
