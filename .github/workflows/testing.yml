@@ -26,6 +26,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install pytest
         pip install -r authapi/requirements.txt
+    - name: Prepare test environment variables
+      run: |
+        echo "CONNECTION_STRING=sqlite:///database.db" >> $GITHUB_ENV
+        echo "ADMIN_ACCESS_TOKEN=1234567890" >> $GITHUB_ENV
     - name: Test with pytest
       run: |
         cd authapi; pytest
