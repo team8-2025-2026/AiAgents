@@ -1,9 +1,9 @@
-from __future__ import annotations
-
 from typing import Optional, Union
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Field, Session, SQLModel, create_engine, select
+from contextlib import asynccontextmanager
+import dotenv
 import bcrypt
 import random
 import string
@@ -34,6 +34,7 @@ DESCRIPTION_LENGTH_RANGE = range(0, 1024)
 
 
 # Environment variables
+dotenv.load_dotenv()
 CONNECTION_STRING = os.getenv('CONNECTION_STRING')
 ADMIN_ACCESS_TOKEN = os.getenv('ADMIN_ACCESS_TOKEN')
 
@@ -60,13 +61,27 @@ class User(SQLModel, table=True):
         }
 
 
+@asynccontextmanager
+async def load_app_context(app: FastAPI):
+    create_db_and_tables()
+
+
 if CONNECTION_STRING is None:
     raise ValueError("CONNECTION_STRING не найден в .env файле. Создайте файл chatapi/.env с CONNECTION_STRING=sqlite:///database.db")
-
-app = FastAPI()
 engine = create_engine(CONNECTION_STRING)
+
+app = FastAPI(lifespan=load_app_context)
 salt = bcrypt.gensalt()
-SQLModel.metadata.create_all(engine)
+
+
+def create_db_and_tables():
+    SQLModel.metadata.create_all(engine)
+
+
+def get_session():
+    with Session(engine) as session:
+        yield session
+
 
 # CORS middleware для работы с фронтендом
 app.add_middleware(
@@ -143,26 +158,26 @@ def validate_status(status: str) -> bool:
 #region CRUD
 @app.get("/user")
 def read_user(email: str,
-              password: str):
-    with Session(engine) as session:
-        statement = select(User).where(User.email == email)
-        user = session.exec(statement).first()
+              password: str,
+              session: Session = Depends(get_session)):
+    statement = select(User).where(User.email == email)
+    user = session.exec(statement).first()
 
-        if user is not None and check_password_hash(password, user.password_hash):
-            return success(user.to_json())
-        else:
-            return error("Пользователь с таким email и паролем не найден")
+    if user is not None and check_password_hash(password, user.password_hash):
+        return success(user.to_json())
+    else:
+        return error("Пользователь с таким email и паролем не найден")
 
 
 @app.get("/user/by_token")
-def read_user_by_token(access_token: str):
-    with Session(engine) as session:
-        statement = select(User).where(User.access_token == access_token)
-        user = session.exec(statement).first()
+def read_user_by_token(access_token: str,
+                       session: Session = Depends(get_session)):
+    statement = select(User).where(User.access_token == access_token)
+    user = session.exec(statement).first()
 
-        if user is not None:
-            return success(user.to_json())
-        else:
+    if user is not None:
+        return success(user.to_json())
+    else:
             return error("Пользователь с таким токеном не найден")
 
 
@@ -171,12 +186,12 @@ def create_user(email: str,
                 first_name: str,
                 last_name: str,
                 status: str,
-                access_token: str):
-    with Session(engine) as session:
-        statement = select(User).where(User.email == email)
-        user = session.exec(statement).first()
+                access_token: str,
+                session: Session = Depends(get_session)):
+    statement = select(User).where(User.email == email)
+    user = session.exec(statement).first()
 
-        if user is not None:
+    if user is not None:
             return error("Email занят")
     
     if not validate_email(email):
@@ -190,30 +205,28 @@ def create_user(email: str,
     
     # Check access permissions
     if access_token != ADMIN_ACCESS_TOKEN:
-        with Session(engine) as session:
-            statement = select(User).where(User.access_token == access_token)
-            user = session.exec(statement).first()
+        statement = select(User).where(User.access_token == access_token)
+        user = session.exec(statement).first()
 
-            if user is None or user.status != ASSISTENT:
+        if user is None or user.status != ASSISTENT:
                 return error("Недостаточно прав")
 
-    with Session(engine) as session:
-        password = generate_password()
-        password_hash = generate_password_hash(password)
-        access_token = generate_access_token(email, password)
-        new_user = User(email=email,
-                        first_name=first_name,
-                        last_name=last_name,
-                        status=status,
-                        password_hash=password_hash,
-                        access_token=access_token)
-        session.add(new_user)
-        session.commit()
+    password = generate_password()
+    password_hash = generate_password_hash(password)
+    access_token = generate_access_token(email, password)
+    new_user = User(email=email,
+                    first_name=first_name,
+                    last_name=last_name,
+                    status=status,
+                    password_hash=password_hash,
+                    access_token=access_token)
+    session.add(new_user)
+    session.commit()
 
-        output_data = new_user.to_json()
-        output_data['password'] = password
+    output_data = new_user.to_json()
+    output_data['password'] = password
 
-        return success(output_data)
+    return success(output_data)
 
 
 @app.patch("/user")
@@ -222,7 +235,8 @@ def update_user(email: str,
                 first_name: Optional[str] = None,
                 last_name: Optional[str] = None,
                 description: Optional[str] = None,
-                password: Optional[str] = None):
+                password: Optional[str] = None,
+                session: Session = Depends(get_session)):
     if first_name is not None and not validate_first_name(first_name):
         return error("Неверные параметры: first_name")
     if last_name is not None and not validate_last_name(last_name):
@@ -234,91 +248,87 @@ def update_user(email: str,
     
     # Check access permissions
     if access_token != os.getenv('ADMIN_ACCESS_TOKEN'):
-        with Session(engine) as session:
-            statement = select(User).where(User.access_token == access_token)
-            user = session.exec(statement).first()
+        statement = select(User).where(User.access_token == access_token)
+        user = session.exec(statement).first()
 
+        if user is None:
+            return error("Недостаточно прав")
+        elif user.email == email: # User changes its own settings
+            pass
+        elif user.status == ASSISTENT: # Assistent changes user settings
+            statement = select(User).where(User.email == email)
+            user = session.exec(statement).first()
+            
             if user is None:
-                return error("Недостаточно прав")
-            elif user.email == email: # User changes its own settings
-                pass
-            elif user.status == ASSISTENT: # Assistent changes user settings
-                statement = select(User).where(User.email == email)
-                user = session.exec(statement).first()
-                
-                if user is None:
-                    return error("Почта не найдена")
-                elif user.status == ASSISTENT:
-                    return error("Недостаточно прав(ассистент не может обновлять данные другого ассистента)")
-                else:
-                    pass
+                return error("Почта не найдена")
+            elif user.status == ASSISTENT:
+                return error("Недостаточно прав(ассистент не может обновлять данные другого ассистента)")
             else:
+                pass
+        else:
                 return error("Недостаточно прав")
     
     # Update data
-    with Session(engine) as session:
-        statement = select(User).where(User.email == email)
-        user = session.exec(statement).first()
-        
-        if first_name is not None:
-            user.first_name = first_name
-        if last_name is not None:
-            user.last_name = last_name
-        if description is not None:
-            user.description = description
-        if password is not None:
-            user.password_hash = generate_password_hash(password)
-        
-        session.add(user)
-        session.commit()
-        session.refresh(user)
+    statement = select(User).where(User.email == email)
+    user = session.exec(statement).first()
+    
+    if first_name is not None:
+        user.first_name = first_name
+    if last_name is not None:
+        user.last_name = last_name
+    if description is not None:
+        user.description = description
+    if password is not None:
+        user.password_hash = generate_password_hash(password)
+    
+    session.add(user)
+    session.commit()
+    session.refresh(user)
 
-        return success(user.to_json())
+    return success(user.to_json())
 
 
 @app.delete("/user")
 def delete_user(email: str,
-                access_token: str):
+                access_token: str,
+                session: Session = Depends(get_session)):
     # Check access permissions
     if access_token != os.getenv('ADMIN_ACCESS_TOKEN'):
-        with Session(engine) as session:
-            statement = select(User).where(User.access_token == access_token)
-            user = session.exec(statement).first()
+        statement = select(User).where(User.access_token == access_token)
+        user = session.exec(statement).first()
 
+        if user is None:
+            return error("Недостаточно прав")
+        elif user.email == email: # User deletes its own account
+            pass
+        elif user.status == ASSISTENT: # Assistent deletes user settings
+            statement = select(User).where(User.email == email)
+            user = session.exec(statement).first()
+            
             if user is None:
-                return error("Недостаточно прав")
-            elif user.email == email: # User deletes its own account
-                pass
-            elif user.status == ASSISTENT: # Assistent deletes user settings
-                statement = select(User).where(User.email == email)
-                user = session.exec(statement).first()
-                
-                if user is None:
-                    return error("Почта не найдена")
-                elif user.status == ASSISTENT:
-                    return error("Недостаточно прав(ассистент не может удалять аккаунт другого ассистента)")
-                else:
-                    pass
+                return error("Почта не найдена")
+            elif user.status == ASSISTENT:
+                return error("Недостаточно прав(ассистент не может удалять аккаунт другого ассистента)")
             else:
+                pass
+        else:
                 return error("Недостаточно прав")
     
     # Delete data
-    with Session(engine) as session:
-        statement = select(User).where(User.email == email)
-        user = session.exec(statement).first()
-        
-        session.delete(user)
-        session.commit()
+    statement = select(User).where(User.email == email)
+    user = session.exec(statement).first()
+    
+    session.delete(user)
+    session.commit()
 
-        return success(user.to_json())
+    return success(user.to_json())
 
 
 @app.get("/assistant/available")
-def read_available_assistant():
-    with Session(engine) as session:
-        statement = select(User).where(User.status == ASSISTENT)
-        assistants = session.exec(statement).all()
-        assistant = random.choice(assistants)
-        
-        return success(assistant.to_json())
+def read_available_assistant(session: Session = Depends(get_session)):
+    statement = select(User).where(User.status == ASSISTENT)
+    assistants = session.exec(statement).all()
+    assistant = random.choice(assistants)
+    
+    return success(assistant.to_json())
 #endregion
