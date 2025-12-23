@@ -73,7 +73,7 @@ function HomePage() {
     }
 
     // Для учителей: периодическое обновление списка чатов (чтобы видеть новые эскалированные чаты)
-    if (user.status === 'TEACHER') {
+    if (user.status === 'ASSISTENT') {
       chatsUpdateIntervalRef.current = setInterval(() => {
         loadChats();
       }, 10000); // Обновляем каждые 10 секунд (уменьшено для предотвращения мерцания)
@@ -93,7 +93,7 @@ function HomePage() {
 
   // Дебаунсинг для фильтров (для учителей)
   useEffect(() => {
-    if (user && user.status === 'TEACHER') {
+    if (user && user.status === 'ASSISTENT') {
       // Очищаем предыдущий таймер
       if (filtersDebounceRef.current) {
         clearTimeout(filtersDebounceRef.current);
@@ -202,8 +202,8 @@ function HomePage() {
             onChatDelete={user.status === 'STUDENT' ? handleChatDelete : null}
             onChatRename={handleChatRename}
             userStatus={user.status}
-            filters={user.status === 'TEACHER' ? filters : null}
-            onFiltersChange={user.status === 'TEACHER' ? setFilters : null}
+            filters={user.status === 'ASSISTENT' ? filters : null}
+            onFiltersChange={user.status === 'ASSISTENT' ? setFilters : null}
           />
         </div>
         <div className="main-content">

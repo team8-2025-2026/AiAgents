@@ -19,7 +19,6 @@ function UserPage() {
   const getStatusLabel = (status) => {
     const labels = {
       STUDENT: 'Студент',
-      TEACHER: 'Учитель',
       ASSISTENT: 'Поддержка',
     };
     return labels[status] || status;

@@ -169,7 +169,7 @@ def count_llm_requests(session: Session, chat_id: int) -> int:
 def escalate_chat_to_teacher(session: Session, chat: Chat) -> Optional[User]:
     """Эскалирует чат к учителю. Возвращает назначенного учителя или None"""
     # Находим первого доступного учителя
-    statement = select(User).where(User.status == TEACHER)
+    statement = select(User).where(User.status == ASSISTENT)
     teachers = session.exec(statement).all()
     
     if not teachers:

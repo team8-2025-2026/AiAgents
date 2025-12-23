@@ -35,7 +35,7 @@ function ChatList({
 
   // Оптимизированная фильтрация чатов с useMemo
   const filteredChats = useMemo(() => {
-    if (userStatus === 'TEACHER' && filters) {
+    if (userStatus === 'ASSISTENT' && filters) {
       return chats.filter(chat => {
         if (filters.studentId && chat.student_id !== filters.studentId) return false;
         if (filters.status && chat.status !== filters.status) return false;
@@ -53,7 +53,7 @@ function ChatList({
             + Новый чат
           </button>
         )}
-        {userStatus === 'TEACHER' && onFiltersChange && (
+        {userStatus === 'ASSISTENT' && onFiltersChange && (
           <div className="chat-filters">
             <select
               value={filters?.status || 'all'}
